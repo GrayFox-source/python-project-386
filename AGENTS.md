@@ -30,3 +30,17 @@
 4. **UI компоненты**: При добавлении новых элементов интерфейса используй `npx shadcn@latest add <component>` вместо ручного написания стилей с нуля.
 5. **Tailwind**: Используется версия 3.x. Не предлагай обновления до v4 без явного запроса.
 6. **CI**: Все проверки (линтер + тесты) должны проходить локально до push. GitHub Actions запускается на каждый push в main и на каждый PR.
+
+## Agent skills
+
+### Issue tracker
+
+Задачи и спеки живут в GitHub Issues этого репозитория (CLI `gh`). См. `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Стандартный словарь: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. См. `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: один `GLOSSARY.md` + `docs/adr/` в корне. См. `docs/agents/domain.md`.
