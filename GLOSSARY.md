@@ -45,7 +45,7 @@ The rolling window of calendar dates, evaluated in the Availability timezone, th
 _Avoid_: booking window, max date, limit
 
 **Booking:**
-A confirmed commitment created when a Guest picks a Slot: a specific Meeting Type, held by a specific Guest, at a specific time, with a status (`pending` | `confirmed` | `cancelled`).
+A commitment created when a Guest picks a Slot: a specific Meeting Type, held by a specific Guest, at a specific time, with a status (`pending` | `confirmed` | `cancelled` | `expired`). A `pending` Booking holds its Slot until the Host confirms it or it expires.
 _Avoid_: meeting, appointment, reservation, order
 
 **Booking Page:**
