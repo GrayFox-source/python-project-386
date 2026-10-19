@@ -1,8 +1,8 @@
 # Спецификация системы бронирования встреч
 
-**Статус:** draft для утверждения (не является финальной версией).
-**Основание:** решения по тикетам #6, #7, #8; research #3 и #4; `GLOSSARY.md`; ADR-0001 и ADR-0002.
-**Следующий шаг:** закрыть Open Questions (в первую очередь #5, #9–#14), затем утвердить спеку и разложить на тикеты реализации.
+**Статус:** approved (утверждена владельцем, 2026-10-19).
+**Основание:** решения по тикетам #6, #7, #8; research #3 и #4; `GLOSSARY.md`; ADR-0001 и ADR-0002; MVP-дефолты по ранее открытым вопросам (ниже).
+**Следующий шаг:** разложить спеку на вертикальные тикеты реализации (`/to-tickets`).
 
 Термины домена используются в каноническом виде и с английскими именами: Host, Guest, Meeting Type, Availability, Weekly Window, Date Override, Slot, Buffer, Minimum Notice, Booking Horizon, Booking, Booking Page, Scheduling Link.
 
@@ -28,7 +28,7 @@ Host заранее создаётся сидом, настраивает Availa
 ### В scope
 
 - Один Host на инсталляцию; без команд и коллективного бронирования (ADR-0002).
-- Вход Host (механизм финализируется в #5).
+- Вход Host по JWT в httpOnly cookie; единственный Host создаётся seed-командой из env.
 - CRUD Meeting Type со статусами `active` / `archived`.
 - Host-scoped переиспользуемая Availability: недельные окна, date overrides, таймзона.
 - Публичная выдача слотов с учётом броней, буферов, Minimum Notice и Booking Horizon.
@@ -56,7 +56,7 @@ Host заранее создаётся сидом, настраивает Availa
 
 ### Host
 
-Владелец scheduling-страницы. В MVP ровно один Host на инсталляцию. У Host есть IANA-таймзона; она используется как значение по умолчанию для новой Availability и для отображения времени в кабинете. Точная модель аккаунта и аутентификации — #5.
+Владелец scheduling-страницы. В MVP ровно один Host на инсталляцию. У Host есть email, Argon2id-хеш пароля и IANA-таймзона; зона используется как значение по умолчанию для новой Availability и для отображения времени в кабинете. Аутентификация — JWT в httpOnly cookie (см. «Auth»).
 
 ### Meeting Type
 
@@ -140,10 +140,10 @@ Commitment Guest'а на конкретный Slot конкретного Meetin
 ### Host и доступ
 
 1. Как Host, я хочу входить в кабинет под заранее созданным аккаунтом, чтобы управлять своими встречами.
-   **Acceptance:** неавторизованный запрос к `/dashboard/*` и host-эндпоинтам не даёт доступа и перенаправляет/возвращает ошибку по решению #5; после входа доступен dashboard.
+   **Acceptance:** неавторизованный запрос к `/dashboard/*` и host-эндпоинтам не даёт доступа; API возвращает `401`, UI редиректит на `/login`; после входа доступен dashboard.
 
 2. Как Host, я хочу выходить из аккаунта, чтобы завершить сессию.
-   **Acceptance:** после logout защищённые страницы и эндпоинты недоступны; механизм отзыва сессии соответствует #5.
+   **Acceptance:** после logout cookie очищается, защищённые страницы и эндпоинты недоступны.
 
 3. Как владелец инсталляции, я хочу создать единственного Host сидом/CLI из конфигурации, чтобы не строить регистрацию в MVP.
    **Acceptance:** повторный запуск сида не создаёт дубликат Host; credentials берутся из env; пароль хранится только в виде хеша.
@@ -285,13 +285,13 @@ Commitment Guest'а на конкретный Slot конкретного Meetin
 ### Ошибки, приватность и безопасность
 
 46. Как Guest, я хочу получать машиночитаемые коды ошибок, чтобы UI мог показать точное сообщение.
-    **Acceptance:** ошибки содержат `code`; используются коды из раздела «Валидация и ошибки»; формат конверта финализируется в #12.
+    **Acceptance:** ошибки содержат `code`; используются коды из раздела «Валидация и ошибки»; формат конверта — в разделе «API contract».
 
 47. Как Guest, я не хочу, чтобы токен моей брони утекал через логи или Referer.
     **Acceptance:** URL с токеном не логируется; `Referrer-Policy: no-referrer`; HTTPS обязателен; в БД хранится только SHA-256-хеш токена.
 
 48. Как Host, я не хочу, чтобы Guest мог читать или менять чужие брони.
-    **Acceptance:** токен даёт доступ ровно к одной Booking; перебор токенов ограничивается rate limiting (детали — #13).
+    **Acceptance:** токен даёт доступ ровно к одной Booking; перебор токенов ограничивается rate limiting (см. «NFR и безопасность»).
 
 49. Как владелец системы, я хочу, чтобы двойное бронирование было невозможно даже при гонке.
     **Acceptance:** проверка выполняется в транзакции с блокировкой; есть частичный уникальный индекс `(host_id, starts_at) WHERE status IN ('pending','confirmed')`; проигравший получает `409 slot_taken`.
@@ -311,8 +311,10 @@ Commitment Guest'а на конкретный Slot конкретного Meetin
 - **Domain: Booking** — жизненный цикл, переходы, истечение, отмена, идемпотентность, токен.
 - **Persistence** — SQLAlchemy-модели, Alembic-миграции, транзакции и ограничения.
 - **HTTP API** — host-эндпоинты (auth), публичные эндпоинты Booking Page, гостевые эндпоинты по токену.
+- **Auth** — seed единственного Host, JWT в httpOnly-cookie, login/logout/me, защита host-эндпоинтов.
 - **Frontend: Host dashboard** — список Meeting Type, формы, редактор Availability, список броней.
 - **Frontend: Booking Page** — выбор даты/слота, форма Guest'а, экран успеха, страница брони по токену.
+- **Frontend: data layer** — тонкий типизированный fetch-клиент и сгенерированные из OpenAPI типы; без TanStack Query и отдельного state manager.
 
 ### Meeting Type
 
@@ -338,7 +340,7 @@ Commitment Guest'а на конкретный Slot конкретного Meetin
 
 Scheduling Link: `{origin}/book/{slug}`. Сегмент Host отсутствует (single-host, ADR-0002). Slug редактируем; при смене старая ссылка перестаёт работать без редиректа. Slug зарезервирован на всё время жизни записи, включая `archived`; освобождается после hard delete. Unarchive возвращает ту же ссылку.
 
-> **Замечание о противоречии в #6.** В тикете #6 `buffer_*`, `minimum_notice_minutes`, `booking_horizon_days` и `slot_interval_minutes` перечислены в блоке валидации Availability. При этом `GLOSSARY.md` прямо определяет Buffer, Minimum Notice и Booking Horizon как настройки Meeting Type, а `slot_interval_minutes` по умолчанию равен длительности Meeting Type. Спека закрепляет эти поля за Meeting Type, чтобы модель была непротиворечивой и совпадала с research #3. Это решение нужно подтвердить при закрытии #11/#12.
+> **Размещение scheduling-настроек подтверждено владельцем.** `buffer_before_minutes`, `buffer_after_minutes`, `minimum_notice_minutes`, `booking_horizon_days` и `slot_interval_minutes` живут на Meeting Type, а не на Availability. Это соответствует `GLOSSARY.md` и research #3; запись в блоке валидации Availability в #6 считается неточностью формулировки.
 
 ### Availability
 
@@ -358,7 +360,7 @@ Scheduling Link: `{origin}/book/{slug}`. Сегмент Host отсутству�
 - `24:00` разрешён как конец интервала («до локальной полуночи»); `start = 24:00` запрещён.
 - Окно не обязано вмещать `duration_minutes`: слишком короткое окно просто не даёт Slot'ов.
 
-Хранение (предварительно, финализируется в #11): одна таблица `availability_rules` с дискриминатором `kind = weekly | override`, nullable `day_of_week` / `date`, nullable `start_time` / `end_time`, флаг `is_closed` для override. Инварианты обеспечиваются CHECK-констрейнтами.
+Хранение: одна таблица `availability_rules` с дискриминатором `kind = weekly | override`, nullable `day_of_week` / `date`, nullable `start_time` / `end_time`, флаг `is_closed` для override. Инварианты обеспечиваются CHECK-констрейнтами.
 
 Создание, редактирование, удаление:
 
@@ -470,7 +472,7 @@ DST:
 - Просмотр и отмена — до `starts_at`; просмотр — до `starts_at + 7 дней`, затем 404.
 - Токен не ротируется при отмене и не показывается Host'у; Host не может перевыпустить ссылку.
 - URL с токеном не логируется; `Referrer-Policy: no-referrer`; HTTPS обязателен.
-- Rate limiting публичных эндпоинтов — #13.
+- Rate limiting публичных эндпоинтов — см. «NFR и безопасность».
 
 Видимость:
 
@@ -480,14 +482,27 @@ DST:
 
 ### API contract
 
+Стиль — стандартный REST, JSON, ресурсные пути. Версионирование в MVP не вводится.
+
 Общие правила:
 
 - Входные timestamps — только RFC 3339 с `Z` или явным offset; naive/date-only отклоняются.
 - Выходные `starts_at` / `ends_at` — RFC 3339 UTC `Z`.
 - Поля таймзоны — IANA; сервер валидирует через `ZoneInfo`.
-- Ошибки содержат машиночитаемый `code`; точный конверт — #12.
+- Пагинация списков — `limit` / `offset`; default `limit = 50`, максимум 200.
+- Валидационные ошибки — стандартный ответ FastAPI/Pydantic: `{"detail": [{"loc": [...], "msg": "...", "type": "..."}]}`.
+- Доменные ошибки — `{"detail": {"code": "slot_taken", "message": "..."}}`; `code` сохраняет машиночитаемую семантику из таблицы ниже.
+- `401` — неавторизованный host-запрос; `403` в MVP не используется.
 
-**Подтверждённые host-эндпоинты Availability:**
+**Auth:**
+
+- `POST /auth/login` — тело `email`, `password`; при успехе ставит `httpOnly` cookie с JWT и возвращает Host.
+- `POST /auth/logout` — очищает cookie.
+- `GET /auth/me` — возвращает текущего Host или `401`.
+
+JWT: HS256, срок жизни 7 дней, секрет из env. Cookie: `host_session`, `httpOnly`, `SameSite=Lax`, `Secure` в production, `Path=/`. Отзыва токена на сервере нет (stateless JWT), logout удаляет cookie. CSRF-токен не вводится: same-origin + `SameSite=Lax`. Пароль хранится как Argon2id-хеш. Seed единственного Host — из env `HOST_EMAIL`, `HOST_PASSWORD`, `HOST_TIMEZONE`; повторный seed обновляет существующего Host, а не создаёт дубликат.
+
+**Host: Availability:**
 
 - `GET /hosts/me/availabilities`
 - `POST /hosts/me/availabilities`
@@ -497,42 +512,57 @@ DST:
 
 Тело: `name`, `timezone`, `weekly`, `overrides`. `PUT` полностью заменяет weekly + overrides атомарно; `PATCH` нет; last write wins без ETag. Ответ дополнительно содержит `meeting_types_count`.
 
-**Подтверждённый публичный эндпоинт слотов:**
+**Host: Meeting Type:**
 
+- `GET /hosts/me/meeting-types`
+- `POST /hosts/me/meeting-types`
+- `GET /hosts/me/meeting-types/{id}`
+- `PUT /hosts/me/meeting-types/{id}`
+- `DELETE /hosts/me/meeting-types/{id}`
+- `POST /hosts/me/meeting-types/{id}/archive`
+- `POST /hosts/me/meeting-types/{id}/unarchive`
+
+**Host: Booking:**
+
+- `GET /hosts/me/bookings?status=&from=&to=&limit=&offset=`
+- `GET /hosts/me/bookings/{id}`
+- `POST /hosts/me/bookings/{id}/confirm`
+- `POST /hosts/me/bookings/{id}/cancel` — тело `cancellation_reason` (опционально).
+
+**Public: Booking Page и Guest:**
+
+- `GET /book/{slug}` — данные Meeting Type для Booking Page.
 - `GET /book/{slug}/slots?from=YYYY-MM-DD&to=YYYY-MM-DD&timezone=IANA`
+- `POST /book/{slug}/bookings` — создание Booking; опциональный заголовок `Idempotency-Key`.
+- `GET /bookings/{token}` — просмотр своей Booking по токену.
+- `POST /bookings/{token}/cancel` — отмена своей Booking; тело `cancellation_reason` (опционально).
+
+Создание Booking возвращает `201` с Booking и `booking_url`, содержащим plaintext-токен; повтор с тем же `Idempotency-Key` — `200` с текущим состоянием и без нового токена.
+
+**Слоты:**
 
 `from` / `to` — локальные даты в зоне отображения, включительно; `timezone` обязателен. Сервер расширяет раскрытие Availability на ±1 локальную дату, затем фильтрует по локальной дате Guest'а. Максимум 62 календарных дня за запрос, иначе `422 range_too_large`; `from > to` → 422. Даты за пределами horizon/notice не ошибка — пустой результат. Архивный Meeting Type → 410; неизвестный slug → 404. Ответ сгруппирован по дате в зоне отображения; `start` / `end` — RFC 3339 UTC `Z`; `timezone` эхом; дни без слотов отсутствуют; слоты внутри дня отсортированы; пустой результат — `200` с пустым `days`. Fall-back слоты с одинаковой локальной меткой различаются UTC-временем.
 
-**Предварительный host/guest-контур (финализируется в #12):**
+## Data model
 
-- `GET/POST /hosts/me/meeting-types`
-- `GET/PUT/DELETE /hosts/me/meeting-types/{id}`
-- `POST /hosts/me/meeting-types/{id}/archive` и `/unarchive`
-- `GET /hosts/me/bookings`
-- `GET /hosts/me/bookings/{id}`
-- `POST /hosts/me/bookings/{id}/confirm`
-- `POST /hosts/me/bookings/{id}/cancel`
-- `GET /book/{slug}`
-- `POST /book/{slug}/bookings`
-- `GET /bookings/{token}`
-- `POST /bookings/{token}/cancel`
-
-Точные пути, методы архивации/unarchive, пагинация и форма ответов не считаются принятыми до закрытия #12.
-
-## Data model (предварительно)
-
-Точные типы, имена ограничений и индексы финализируются в #11. Логическая схема:
+SQLAlchemy 2.0 (declarative, typed) + Alembic. SQLite как основная БД MVP; схема должна оставаться совместимой с Postgres.
 
 | Сущность | Ключевые поля | Примечания |
 | --- | --- | --- |
-| `hosts` | `id`, `email`, `password_hash`, `timezone`, `created_at` | Auth-поля зависят от #5; `timezone` — IANA |
+| `hosts` | `id`, `email`, `password_hash`, `timezone`, `created_at`, `updated_at` | `email` уникален; `password_hash` — Argon2id; `timezone` — IANA |
 | `availabilities` | `id`, `host_id`, `name`, `timezone`, `created_at`, `updated_at` | уникальность `name` в рамках Host без учёта регистра |
-| `availability_rules` | `id`, `availability_id`, `kind`, `day_of_week`, `date`, `start_time`, `end_time`, `is_closed` | `kind = weekly \| override`; CHECK-инварианты |
+| `availability_rules` | `id`, `availability_id`, `kind`, `day_of_week`, `date`, `start_time`, `end_time`, `is_closed` | `kind = weekly \| override`; CHECK-инварианты; `24:00` хранится как `23:59:59.999999` и при раскрытии трактуется как конец текущей локальной даты |
 | `meeting_types` | `id`, `host_id`, `availability_id`, `title`, `description`, `duration_minutes`, `format`, `location`, `slug`, `status`, `buffer_before_minutes`, `buffer_after_minutes`, `minimum_notice_minutes`, `booking_horizon_days`, `slot_interval_minutes`, `created_at`, `updated_at` | уникальность slug в рамках Host; архивные тоже участвуют |
-| `bookings` | `id`, `host_id`, `meeting_type_id`, `guest_name`, `guest_email`, `comment`, `status`, `starts_at`, `ends_at`, `expires_at`, `cancelled_at`, `cancelled_by`, `cancellation_reason`, `idempotency_key`, `idempotency_key_expires_at`, `token_hash`, `created_at`, `updated_at` | `starts_at` / `ends_at` — UTC instants; частичный уникальный индекс `(host_id, starts_at) WHERE status IN ('pending','confirmed')` |
-| `idempotency_keys` | `key`, `booking_id`, `request_hash`, `expires_at` | Либо отдельная таблица, либо поля в `bookings`; решает #11 |
+| `bookings` | `id`, `host_id`, `meeting_type_id`, `guest_name`, `guest_email`, `comment`, `status`, `starts_at`, `ends_at`, `expires_at`, `cancelled_at`, `cancelled_by`, `cancellation_reason`, `token_hash`, `created_at`, `updated_at` | `starts_at` / `ends_at` — UTC instants; частичный уникальный индекс `(host_id, starts_at) WHERE status IN ('pending','confirmed')`; индексы по `expires_at` и `(host_id, starts_at)` |
+| `idempotency_keys` | `key`, `booking_id`, `request_hash`, `expires_at` | Отдельная таблица; `key` уникален; запись живёт 24 часа |
 
-Alembic-миграции должны включать backfill Availability для существующих Meeting Type (включая архивные). На пустой БД backfill — no-op.
+Ограничения и инварианты:
+
+- `availability_rules`: для `weekly` обязательны `day_of_week`, `start_time`, `end_time`, `date IS NULL`, `is_closed = false`; для `override` обязательны `date` и `is_closed`, `day_of_week IS NULL`; если `is_closed = false`, интервалы обязательны, если `true` — интервалы `NULL`.
+- `meeting_types.slug`: уникальный индекс без учёта регистра в рамках `host_id`; архивные записи участвуют.
+- `bookings`: частичный уникальный индекс `(host_id, starts_at) WHERE status IN ('pending','confirmed')` поддерживается и в SQLite, и в Postgres.
+- `24:00` не хранится как отдельное значение времени: `23:59:59.999999` + правило интерпретации. Это позволяет использовать нативный тип времени.
+- Alembic-миграции включают backfill Availability для существующих Meeting Type (включая архивные); на пустой БД backfill — no-op.
 
 ## UI routes и flows
 
@@ -543,17 +573,26 @@ Alembic-миграции должны включать backfill Availability д�
 - `/dashboard` — главная: ближайшие Booking, статусы, быстрые действия.
 - `/dashboard/meeting-types` — список active/archived, создание, редактирование, архивация, копирование Scheduling Link.
 - `/dashboard/meeting-types/new` и `/dashboard/meeting-types/{id}` — форма Meeting Type.
-- `/dashboard/availability` и `/dashboard/availability/{id}` — список и редактор Availability: недельные окна, overrides, буферы/notice/horizon/шаг.
+- `/dashboard/availability` и `/dashboard/availability/{id}` — список и редактор Availability: недельные окна, overrides и таймзона.
+- `/dashboard/meeting-types/{id}/scheduling` — настройки Meeting Type: буферы, Minimum Notice, Booking Horizon, шаг сетки. Допустимо держать их в общей форме Meeting Type.
 - `/dashboard/bookings` — список Booking с фильтрами, подтверждением, отменой и деталями Guest'а.
-- `/dashboard/settings` — настройки Host (состав зависит от #5).
+- `/dashboard/settings` — email и IANA-таймзона Host; смена пароля в MVP не делается.
 - `/login` — вход Host.
 
-Точные пути и защита роутов финализируются в #9; UX-детали — в #16.
+Auth guard: при загрузке приложение вызывает `GET /auth/me`; `401` → редирект на `/login` с возвратом на исходный путь после входа. Login/logout — через тот же тонкий клиент, cookie ставится сервером.
+
+### Frontend data layer
+
+- Тонкий типизированный fetch-клиент: базовый URL, `credentials: "include"`, разбор доменных ошибок, `Idempotency-Key` для создания Booking.
+- Типы API генерируются из OpenAPI FastAPI (`openapi-typescript`) в один модуль; отдельный сгенерированный клиент не обязателен.
+- Без TanStack Query/Redux/Zustand. Состояние — React state на уровне страницы; после мутаций — явный refetch или локальное обновление.
+- Auth-состояние — небольшой React context поверх `GET /auth/me`.
+- 404-роут для неизвестных путей и неизвестного slug.
 
 ### Public
 
 - `/book/{slug}` — Booking Page: Meeting Type, выбор даты/слота, форма Guest'а, подтверждение.
-- Страница Booking по токену — путь финализируется в #12/#15; показывает статус, детали и действие отмены.
+- `/booking/{token}` — страница Booking по токену: статус, детали и действие отмены.
 - 404 — неизвестный slug или несуществующая страница.
 - Архивный Meeting Type — 410-состояние.
 
@@ -567,7 +606,14 @@ Booking Page flow:
 6. Экран успеха с Booking URL и plaintext-токеном (показывается один раз).
 7. Обработка `409 slot_taken` / `409 slot_unavailable`: сообщение и обновление слотов.
 
-UX-детали (вид календаря, пустые состояния, мобильная версия, доступность) — #15 и #16.
+### UX defaults для MVP
+
+- **Booking Page:** ближайшие 14 дней вертикальным списком с группировкой по датам; без месячного календаря. Выбранная дата раскрывает слоты. Таймзона определяется через `Intl` и меняется селектом IANA-зон; рядом с временем явно показана зона.
+- **Экран успеха:** статус `pending`, время в зоне Guest'а, ссылка `/booking/{token}` и предупреждение «сохраните ссылку — она показывается один раз».
+- **Пустые/ошибочные состояния:** «нет доступных слотов», «тип встречи архивирован», «слот уже занят» с кнопкой обновления.
+- **Dashboard:** заголовок, карточка ближайших Booking, быстрые действия, отдельные секции active/archived Meeting Type.
+- **Списки:** таблица на desktop, карточки на mobile; фильтр по статусу Booking; кнопки подтверждения/отмены с подтверждающим диалогом.
+- **Доступность:** семантические заголовки и формы, labels, keyboard navigation, видимый focus, контраст не ниже WCAG AA.
 
 ## Валидация и ошибки
 
@@ -610,7 +656,7 @@ UX-детали (вид календаря, пустые состояния, м�
 | 409 | `booking_started` | Действие после `starts_at` |
 | 410 | `meeting_type_archived` | Архивный Meeting Type |
 
-Точный формат тела ошибки (поля, вложенность, список полевых деталей) — #12.
+Формат тела ошибки — см. раздел «API contract»: стандартный `detail`-массив Pydantic для валидации и `detail`-объект с `code`/`message` для доменных ошибок.
 
 ## NFR и безопасность
 
@@ -623,12 +669,23 @@ UX-детали (вид календаря, пустые состояния, м�
 - Guest-токен: 256 бит, SHA-256-хеш в БД, plaintext один раз.
 - URL с токеном не логируется; `Referrer-Policy: no-referrer`; HTTPS обязателен.
 - Email/push-уведомлений нет.
-- Rate limiting, CORS, cookie-флаги, CSRF, retention, лимиты запросов и PII-логирование — #13.
+
+MVP-дефолты:
+
+- **Cookie/JWT:** `host_session`, JWT HS256, 7 дней, `httpOnly`, `SameSite=Lax`, `Secure` в production, `Path=/`. Секрет — `JWT_SECRET` из env.
+- **CSRF:** отдельный токен не вводится; защита — same-origin + `SameSite=Lax`.
+- **CORS:** production — same-origin, без широкого CORS; dev — разрешён `http://localhost:5173` с credentials.
+- **Rate limiting:** in-memory fixed-window per IP: слоты — 120 запросов/мин, создание Booking — 10/мин, guest-токен — 60/мин. Для MVP считается достаточным; ограничение одного процесса задокументировано в README.
+- **CSP:** базовый `default-src 'self'`; inline-скрипты не используются.
+- **Retention:** Booking и гостевые данные хранятся бессрочно в MVP; автоматического удаления нет. PII — только `guest_name`, `guest_email`, `comment`.
+- **Логи:** не логируются токены, пароли, тела запросов с PII; access-log без query-параметров страницы Booking по токену.
+- **Производительность:** жёстких SLA нет; запрос слотов на 62 дня должен укладываться в ~1 секунду локально.
+- **Доступность:** базовая клавиатурная навигация, labels, focus, контраст AA.
 
 Ориентиры:
 
 - Backend: Python 3.14, FastAPI, SQLAlchemy 2.0, Alembic, SQLite с совместимой с Postgres схемой.
-- Frontend: React + TypeScript + Vite + Tailwind v3 + shadcn/ui + React Router; слой данных — #9.
+- Frontend: React + TypeScript + Vite + Tailwind v3 + shadcn/ui + React Router; тонкий fetch-клиент и сгенерированные из OpenAPI типы, без TanStack Query и отдельного state manager.
 - Все проверки (lint + tests + build) должны проходить локально до push.
 
 ## Testing Decisions
@@ -724,22 +781,22 @@ UX-детали (вид календаря, пустые состояния, м�
 - Авто-подтверждение.
 - `Host.default_availability_id`.
 
-## Open Questions
+## Resolved questions (MVP defaults)
 
-Эти вопросы нужно закрыть до утверждения спеки и запуска `/to-tickets`.
+Открытых блокирующих вопросов нет. Ранее перечисленные вопросы закрыты так:
 
-1. **Host auth (#5).** Точный способ создания единственного Host (сид, CLI, env), алгоритм хеширования пароля, механизм сессии (JWT в httpOnly-cookie или серверная сессия), срок жизни, logout/отзыв, CSRF, поведение при 401 и редиректы. Также: обязательна ли IANA-таймзона у Host и как задаётся при сиде.
-2. **Точный список эндпоинтов и API-контракт (#12).** Подтвердить host-эндпоинты Meeting Type и Booking, методы архивации/unarchive, пагинацию и фильтры, форму успешного ответа создания Booking, путь страницы Booking по токену, формат конверта ошибок, семантику `Idempotency-Key` на уровне HTTP и точные статусы.
-3. **Схема БД (#11).** Точные типы и имена колонок, представление `24:00`, CHECK-констрейнты, отдельная таблица идемпотентности или поля в Booking, индексы для активных Booking, частичный уникальный индекс в SQLite и Postgres, стратегия backfill и миграций.
-4. **Алгоритм генерации слотов (#10).** Формализовать вычитание пересекающихся окон, границы буферов, поведение при нескольких окнах и overrides, а также полную тест-матрицу DST. Базовые правила уже зафиксированы в этой спеке; #10 должен превратить их в однозначный алгоритм.
-5. **Размещение scheduling-настроек.** Подтвердить, что `buffer_before_minutes`, `buffer_after_minutes`, `minimum_notice_minutes`, `booking_horizon_days`, `slot_interval_minutes` живут на Meeting Type, а не на Availability (в #6 они перечислены в блоке валидации Availability; GLOSSARY и research #3 говорят за Meeting Type).
-6. **Frontend-архитектура (#9).** TanStack Query или тонкий fetch-клиент; правила кэширования/инвалидации; генерация типов из OpenAPI или ручные типы; auth guard; 404-роут; границы компонентов и роль shadcn/ui.
-7. **UX Host dashboard (#16).** Прототип: компоновка dashboard, формы Meeting Type, редактор Availability, список и фильтры броней, пустые состояния и ошибки.
-8. **UX Booking Page (#15).** Прототип: вид календаря (месяц/неделя/список), выбор таймзоны, мобильная версия, экран успеха, состояния `409`, `expired`, `cancelled`.
-9. **NFR и безопасность (#13).** Rate limiting (лимиты и окна), CORS, cookie-флаги, CSRF, CSP, retention гостевых данных, запрет PII в логах, целевые показатели производительности/доступности и базовая доступность.
-10. **Стратегия тестирования (#14).** Нужен ли e2e, минимальный набор интеграционных тестов, порог покрытия и точные критерии «тикет готов».
-11. **Демо-данные, окружения и деплой.** Нужен ли демо-режим/сид для защиты проекта, какие env-переменные обязательны, как выполняются миграции на проде. Вопрос из «Not yet specified» карты #2.
-12. **Приватность и retention гостевых данных.** Когда и как удаляются старые Booking и гостевые данные; влияет ли это на историю Host'а. Вопрос из карты #2.
+1. **Host auth (#5).** Один Host создаётся seed-командой из env `HOST_EMAIL`, `HOST_PASSWORD`, `HOST_TIMEZONE`. Пароль — Argon2id. Сессия — JWT HS256 в `httpOnly` cookie, срок 7 дней, `SameSite=Lax`, `Secure` в production. Есть `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`. Logout очищает cookie; серверного отзыва токена нет. CSRF-токен не нужен при same-origin + `SameSite=Lax`. `401` от API → редирект на `/login`; host-эндпоинты без валидной cookie возвращают `401`.
+2. **API-контракт (#12).** Стандартный REST; пути, пагинация (`limit`/`offset`), коды и формы ответов зафиксированы в разделе «API contract». Валидационные ошибки — стандартный FastAPI/Pydantic `detail`-массив; доменные ошибки — `detail`-объект с `code` и `message`.
+3. **Схема БД (#11).** SQLAlchemy 2.0 + Alembic, таблица `availability_rules` с дискриминатором `weekly | override`, частичный уникальный индекс `(host_id, starts_at) WHERE status IN ('pending','confirmed')`, отдельная таблица `idempotency_keys`, `24:00` хранится как `23:59:59.999999`.
+4. **Алгоритм генерации слотов (#10).** Правила в разделе «Генерация слотов» считаются достаточными для реализации: раскрытие окон, вычитание занятости, реальный шаг, буферы, notice, horizon, DST gap/fold, дедупликация по instant. Тест-матрица DST переносится в тикеты реализации.
+5. **Размещение scheduling-настроек.** Подтверждено: `buffer_*`, `minimum_notice_minutes`, `booking_horizon_days`, `slot_interval_minutes` находятся на Meeting Type, не на Availability.
+6. **Frontend (#9).** Тонкий типизированный fetch-клиент + типы, сгенерированные из OpenAPI. TanStack Query и отдельный state manager не используются. Auth guard — через `GET /auth/me`; 404-роут обязателен. shadcn/ui используется для базовых контролов и диалогов.
+7. **UX Host dashboard (#16).** MVP-компоновка зафиксирована в разделе «UX defaults»: dashboard с ближайшими Booking, секции Meeting Type, формы, редактор Availability, таблица/карточки Booking, пустые и ошибочные состояния.
+8. **UX Booking Page (#15).** MVP: список ближайших 14 дней, селект IANA-таймзоны, форма Guest'а, экран успеха с одноразовой ссылкой, состояния `409`, `expired`, `cancelled`, mobile-версия и базовая доступность.
+9. **NFR и безопасность (#13).** Cookie-флаги, CORS, rate limiting, CSP, retention, логирование и performance-ориентиры зафиксированы в разделе «NFR и безопасность».
+10. **Тестирование (#14).** E2E не вводится. Обязательны unit-тесты доменных правил, integration-тесты HTTP API, page-level тесты фронтенда; критерии готовности — в «Testing Decisions». Порог покрытия отдельно не задаётся; важнее покрытие инвариантов.
+11. **Демо и деплой.** Отдельного демо-режима нет. Для локального запуска и защиты проекта достаточно seed-команды и README со списком env. Production-деплой не является частью MVP; миграции — через `alembic upgrade head`.
+12. **Retention.** В MVP Booking и гостевые данные хранятся бессрочно; автоматического удаления нет. Это осознанное упрощение, которое можно пересмотреть после MVP.
 
 ## Further Notes
 
@@ -748,5 +805,6 @@ UX-детали (вид календаря, пустые состояния, м�
 - Host видит время в своей таймзоне, Guest — в своей. Уникальность и защита от двойного бронирования сравнивают instants.
 - Архивный Meeting Type продолжает занимать slug и считается использованием Availability.
 - Правки Meeting Type и Availability не переписывают историю существующих Booking.
-- Все решения по #6, #7, #8 и research #3/#4 перенесены сюда; противоречие по размещению scheduling-настроек явно вынесено в Open Questions.
+- Все решения по #6, #7, #8 и research #3/#4 перенесены сюда; размещение scheduling-настроек подтверждено владельцем.
 - Спека намеренно не фиксирует точные пути файлов и фрагменты кода: они быстро устаревают. Исключение — таблицы полей, статусов и кодов ошибок, которые являются контрактом.
+- Версия утверждена 2026-10-19; изменения после утверждения оформляются отдельными решениями и отражаются здесь.
