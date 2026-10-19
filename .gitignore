@@ -1,1 +1,11 @@
 .idea
+
+# Python
+__pycache__/
+*.py[cod]
+
+# API generation
+api-spec/node_modules/
+api-spec/tsp-output/
+frontend/src/api/generated/
+backend/generated/

@@ -7,6 +7,25 @@ on:
     branches: [ main ]
 
 jobs:
+  contract-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: api-spec/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./api-spec
+      - name: Check generated OpenAPI is up to date
+        run: |
+          npm run compile
+          git diff --exit-code -- api-spec/openapi.yaml
+        working-directory: ./api-spec
+
   backend-ci:
     runs-on: ubuntu-latest
     defaults:
@@ -20,6 +39,9 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --dev
+      - name: Generate API models
+        run: make generate-backend
+        working-directory: .
       - name: Lint
         run: uv run ruff check .
       - name: Test
@@ -35,7 +57,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies

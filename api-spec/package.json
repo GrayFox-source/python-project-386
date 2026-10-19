@@ -1,0 +1,19 @@
+{
+  "name": "api-spec",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "compile": "tsp compile .",
+    "watch": "tsp compile . --watch"
+  },
+  "devDependencies": {
+    "@typespec/compiler": "^1.17.0",
+    "@typespec/http": "^1.17.0",
+    "@typespec/openapi": "^1.17.0",
+    "@typespec/openapi3": "^1.17.0"
+  }
+}

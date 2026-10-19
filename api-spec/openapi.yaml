@@ -1,0 +1,482 @@
+openapi: 3.1.0
+info:
+  title: Booking API
+  version: 0.0.0
+tags:
+  - name: Availabilities
+  - name: Booking Page
+paths:
+  /book/{slug}:
+    get:
+      operationId: BookingPage_getMeetingType
+      description: Meeting Type data for the public Booking Page.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+        '410':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoneError'
+      tags:
+        - Booking Page
+  /book/{slug}/slots:
+    get:
+      operationId: BookingPage_listSlots
+      description: Available Slots for a Meeting Type over a date range, grouped in the display timezone.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          explode: false
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          explode: false
+        - name: timezone
+          in: query
+          required: true
+          schema:
+            type: string
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlotListResponse'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+        '410':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoneError'
+        '422':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+      tags:
+        - Booking Page
+  /hosts/me/availabilities:
+    get:
+      operationId: HostAvailabilities_list
+      description: List Host-scoped availabilities.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityListResponse'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+      tags:
+        - Availabilities
+      security:
+        - ApiKeyAuth: []
+components:
+  schemas:
+    ApiError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable code, e.g. `meeting_type_not_found`.
+        message:
+          type: string
+          description: Human-readable message.
+      description: Machine-readable domain error.
+    Availability:
+      type: object
+      required:
+        - id
+        - name
+        - timezone
+        - weekly
+        - overrides
+        - meeting_types_count
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: Unique (case-insensitive) within the Host.
+        timezone:
+          type: string
+          description: IANA timezone the weekly windows and overrides are interpreted in.
+        weekly:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/AvailabilityWindow'
+          description: 'Weekly windows keyed by ISO weekday: 1 = Monday … 7 = Sunday. An empty array means a day off.'
+        overrides:
+          type: array
+          items:
+            $ref: '#/components/schemas/DateOverride'
+        meeting_types_count:
+          type: integer
+          format: int32
+          description: How many Meeting Types reference this Availability, including archived ones.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      description: Named, Host-scoped schedule of recurring weekly windows plus date overrides.
+    AvailabilityListResponse:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Availability'
+        total:
+          type: integer
+          format: int32
+    AvailabilityWindow:
+      type: object
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: string
+          pattern: ^([01][0-9]|2[0-3]):(00|05|10|15|20|25|30|35|40|45|50|55)$
+          description: Local start time, `HH:MM` on a 5-minute grid.
+        end:
+          type: string
+          pattern: ^(([01][0-9]|2[0-3]):(00|05|10|15|20|25|30|35|40|45|50|55)|24:00)$
+          description: Local end time, `HH:MM` on a 5-minute grid, or `24:00` for local midnight.
+      description: A local-time interval on one weekday. Times use a 5-minute grid; `24:00` is allowed only as an end.
+    Booking:
+      type: object
+      required:
+        - id
+        - meeting_type_id
+        - guest_name
+        - guest_email
+        - status
+        - starts_at
+        - ends_at
+        - expires_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        meeting_type_id:
+          type: string
+        guest_name:
+          type: string
+          description: Guest name, required.
+        guest_email:
+          type: string
+          description: Guest email, required and normalised to lower case.
+        comment:
+          anyOf:
+            - type: string
+            - type: 'null'
+          description: Optional free-form comment, at most 1000 characters.
+        status:
+          $ref: '#/components/schemas/BookingStatus'
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          description: 'Lazy expiry instant: `min(created_at + 24h, starts_at)`.'
+        cancelled_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        cancelled_by:
+          anyOf:
+            - $ref: '#/components/schemas/CancelledBy'
+            - type: 'null'
+        cancellation_reason:
+          anyOf:
+            - type: string
+            - type: 'null'
+          description: Optional cancellation reason, at most 500 characters.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      description: A commitment created when a Guest picks a Slot of a Meeting Type.
+    BookingStatus:
+      type: string
+      enum:
+        - pending
+        - confirmed
+        - cancelled
+        - expired
+      description: Lifecycle status of a Booking. `cancelled` and `expired` are terminal.
+    CancelledBy:
+      type: string
+      enum:
+        - guest
+        - host
+      description: Which side cancelled a Booking.
+    DateOverride:
+      type: object
+      required:
+        - date
+        - closed
+      properties:
+        date:
+          type: string
+          format: date
+          description: Local date the override applies to.
+        closed:
+          type: boolean
+          description: When true the date is closed; `intervals` must be empty.
+        intervals:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilityWindow'
+          description: Intervals used when `closed` is false.
+      description: Replaces the Weekly Windows of one local date. Either `closed` or a set of intervals.
+    GoneError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          $ref: '#/components/schemas/ApiError'
+    MeetingType:
+      type: object
+      required:
+        - id
+        - title
+        - duration_minutes
+        - format
+        - slug
+        - availability_id
+        - status
+        - buffer_before_minutes
+        - buffer_after_minutes
+        - minimum_notice_minutes
+        - booking_horizon_days
+        - slot_interval_minutes
+        - scheduling_link
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+          description: 1–120 characters after trim.
+        description:
+          anyOf:
+            - type: string
+            - type: 'null'
+          description: Optional, at most 2000 characters.
+        duration_minutes:
+          type: integer
+          format: int32
+          description: 5–480 minutes.
+        format:
+          $ref: '#/components/schemas/MeetingTypeFormat'
+        location:
+          anyOf:
+            - type: string
+            - type: 'null'
+          description: Optional link (online) or address (offline), at most 500 characters.
+        slug:
+          type: string
+          description: URL-safe identifier, unique per Host including archived types.
+        availability_id:
+          type: string
+          description: Availability the Meeting Type draws its Slots from.
+        status:
+          $ref: '#/components/schemas/MeetingTypeStatus'
+        buffer_before_minutes:
+          type: integer
+          format: int32
+          description: 0–120 minutes.
+        buffer_after_minutes:
+          type: integer
+          format: int32
+          description: 0–120 minutes.
+        minimum_notice_minutes:
+          type: integer
+          format: int32
+          description: 0–10080 minutes.
+        booking_horizon_days:
+          type: integer
+          format: int32
+          description: 1–365 calendar days.
+        slot_interval_minutes:
+          type: integer
+          format: int32
+          description: 5–480 minutes; defaults to `duration_minutes`.
+        scheduling_link:
+          type: string
+          description: 'Shareable Booking Page URL: `{origin}/book/{slug}`.'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      description: A reusable booking template owned by the Host. Guests book Slots against a Meeting Type.
+    MeetingTypeFormat:
+      type: string
+      enum:
+        - online
+        - offline
+      description: How a Meeting Type is held.
+    MeetingTypeStatus:
+      type: string
+      enum:
+        - active
+        - archived
+      description: Lifecycle status of a Meeting Type. Archived types reject new Bookings but keep existing ones.
+    NotFoundError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          $ref: '#/components/schemas/ApiError'
+    Slot:
+      type: object
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: string
+          format: date-time
+          description: Slot start as a UTC instant (RFC 3339 `Z`).
+        end:
+          type: string
+          format: date-time
+          description: Slot end as a UTC instant (RFC 3339 `Z`).
+      description: One concrete start time a Guest can pick.
+    SlotDay:
+      type: object
+      required:
+        - date
+        - slots
+      properties:
+        date:
+          type: string
+          format: date
+          description: Local date in the requested display timezone.
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+      description: Slots grouped by date in the requested display timezone.
+    SlotListResponse:
+      type: object
+      required:
+        - timezone
+        - days
+      properties:
+        timezone:
+          type: string
+          description: Timezone the slots were grouped in; echoes the request.
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/SlotDay'
+    UnauthorizedError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          $ref: '#/components/schemas/ApiError'
+    ValidationErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          $ref: '#/components/schemas/ApiError'
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: cookie
+      name: host_session
+servers:
+  - url: http://localhost:8000
+    description: Local development
+    variables: {}
