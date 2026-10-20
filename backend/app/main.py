@@ -45,14 +45,16 @@ def create_app(
     app.state.engine = engine
     app.state.session_factory = session_factory
 
-    if not app_settings.is_production:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=app_settings.allowed_origins,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+    cors_options: dict[str, object] = {
+        "allow_credentials": True,
+        "allow_methods": ["*"],
+        "allow_headers": ["*"],
+    }
+    if app_settings.allow_all_origins:
+        cors_options["allow_origin_regex"] = ".*"
+    else:
+        cors_options["allow_origins"] = app_settings.allowed_origins
+    app.add_middleware(CORSMiddleware, **cors_options)
 
     @app.get("/health")
     def health_check() -> dict[str, str]:

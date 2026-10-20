@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     def allowed_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin]
 
+    @property
+    def allow_all_origins(self) -> bool:
+        return "*" in self.allowed_origins
+
 
 @lru_cache
 def get_settings() -> Settings:

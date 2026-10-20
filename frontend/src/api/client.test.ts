@@ -1,13 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { getCurrentHost } from "./auth"
-import { HOST_SESSION_EXPIRED_EVENT } from "./client"
+import { HOST_SESSION_EXPIRED_EVENT, client } from "./client"
 
 afterEach(() => {
   vi.unstubAllGlobals()
 })
 
 describe("API client session handling", () => {
+  it("uses a relative API base URL by default", () => {
+    expect(client.getConfig().baseUrl).toBe("")
+  })
+
   it("emits a session-expired event for a 401 response", async () => {
     const response = new Response(
       JSON.stringify({

@@ -3,7 +3,7 @@ import { client } from "./generated/client.gen"
 export const HOST_SESSION_EXPIRED_EVENT = "host-session-expired"
 
 client.setConfig({
-  baseUrl: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000",
+  baseUrl: import.meta.env.VITE_API_BASE_URL || "",
   credentials: "include",
 })
 

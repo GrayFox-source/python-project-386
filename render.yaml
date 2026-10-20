@@ -10,6 +10,8 @@ services:
     envVars:
       - key: ENVIRONMENT
         value: production
+      - key: CORS_ORIGINS
+        value: "*"
       - key: DATABASE_URL
         value: sqlite:////data/booking.db
       - key: JWT_SECRET

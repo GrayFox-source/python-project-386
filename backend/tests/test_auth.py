@@ -130,11 +130,16 @@ def test_production_login_uses_a_secure_cookie(app, settings) -> None:
         )
 
     assert response.status_code == 200
-    assert "secure" in response.headers["set-cookie"].lower()
+    set_cookie = response.headers["set-cookie"].lower()
+    assert "secure" in set_cookie
+    assert "httponly" in set_cookie
+    assert "samesite=lax" in set_cookie
 
 
-def test_production_app_does_not_expose_dev_cors(settings) -> None:
-    production_settings = settings.model_copy(update={"environment": "production"})
+def test_production_wildcard_cors_reflects_origin_with_credentials(settings) -> None:
+    production_settings = settings.model_copy(
+        update={"environment": "production", "cors_origins": "*"}
+    )
     app = create_app(production_settings)
 
     with TestClient(app) as client:
@@ -146,7 +151,8 @@ def test_production_app_does_not_expose_dev_cors(settings) -> None:
             },
         )
 
-    assert "access-control-allow-origin" not in response.headers
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+    assert response.headers["access-control-allow-credentials"] == "true"
 
 
 def test_host_availability_endpoint_requires_authentication(
