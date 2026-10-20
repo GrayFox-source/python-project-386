@@ -69,16 +69,6 @@ npm run dev
 
 По умолчанию фронтенд обращается к `http://localhost:8000`. Другой адрес можно задать через `VITE_API_BASE_URL`.
 
-## Деплой на Render
-
-В корне лежит `render.yaml` — Blueprint для одного Docker-сервиса: бэкенд раздаёт собранный фронтенд и API с одного домена.
-
-1. В Render выберите **New → Blueprint** и подключите репозиторий.
-2. Заполните секреты `HOST_EMAIL`, `HOST_PASSWORD` и `PUBLIC_BASE_URL` (например, `https://booking-calendar-fz8l.onrender.com`). `JWT_SECRET` генерируется автоматически.
-3. Примените Blueprint: Render соберёт `Dockerfile`, подключит диск к `/data` и запустит сервис.
-
-При старте контейнера выполняются `alembic upgrade head` и seed Host, затем запускается uvicorn. SQLite хранится в `/data/booking.db`, поэтому нужен платный план с диском (`starter` и выше): на free-плане данные теряются при каждом деплое или рестарте.
-
 ## Генерация API
 
 После изменения `api-spec/main.tsp`:
