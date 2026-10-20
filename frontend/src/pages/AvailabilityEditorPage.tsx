@@ -33,17 +33,7 @@ import {
   type AvailabilityForm,
   type IntervalForm,
 } from "@/domain/availability"
-
-const COMMON_TIMEZONES = [
-  "UTC",
-  "Europe/Moscow",
-  "Europe/Berlin",
-  "Europe/London",
-  "America/New_York",
-  "America/Los_Angeles",
-  "Asia/Almaty",
-  "Asia/Tokyo",
-]
+import { COMMON_TIMEZONES } from "@/domain/timezones"
 
 function intervalLabel(day: string, index: number, part: "start" | "end") {
   const dayLabel =

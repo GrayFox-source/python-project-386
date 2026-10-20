@@ -9,12 +9,14 @@ import { LoginPage } from "@/pages/LoginPage"
 import { MeetingTypeEditorPage } from "@/pages/MeetingTypeEditorPage"
 import { MeetingTypeListPage } from "@/pages/MeetingTypeListPage"
 import { NotFoundPage } from "@/pages/NotFoundPage"
+import { PublicBookingPage } from "@/pages/PublicBookingPage"
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/book/:slug" element={<PublicBookingPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<HostDashboard />} />
