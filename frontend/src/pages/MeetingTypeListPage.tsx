@@ -73,7 +73,7 @@ function MeetingTypeCard({
 
         <div className="space-y-1">
           <p className="text-xs font-medium uppercase text-muted-foreground">
-            Scheduling Link
+            Ссылка для записи
           </p>
           {isArchived ? (
             <p className="break-all text-sm text-muted-foreground">
@@ -296,7 +296,7 @@ export function MeetingTypeListPage() {
             Типы встреч
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Шаблоны встреч, которые гости открывают по Scheduling Link.
+            Шаблоны встреч, которые гости открывают по ссылке для записи.
           </p>
         </div>
         <Button asChild>

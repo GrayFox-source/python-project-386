@@ -219,7 +219,7 @@ export function AvailabilityEditorPage() {
       setError(
         deleteError instanceof ApiRequestError &&
           deleteError.code === "availability_in_use"
-          ? "Расписание используется Meeting Type и не может быть удалено."
+          ? "Расписание используется в типах встреч и не может быть удалено."
           : mapped.general ?? "Не удалось удалить расписание."
       )
     } finally {
@@ -267,7 +267,7 @@ export function AvailabilityEditorPage() {
     <main className="mx-auto max-w-4xl px-4 py-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm text-muted-foreground">Availability</p>
+          <p className="text-sm text-muted-foreground">Расписание</p>
           <h1 className="text-2xl font-semibold tracking-tight">
             {isNew ? "Новое расписание" : "Редактирование расписания"}
           </h1>
@@ -426,7 +426,7 @@ export function AvailabilityEditorPage() {
           <CardHeader>
             <CardTitle>Исключения по датам</CardTitle>
             <CardDescription>
-              Override заменяет недельные окна выбранной даты.
+              Исключение заменяет недельные окна выбранной даты.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -593,7 +593,7 @@ export function AvailabilityEditorPage() {
           <Alert>
             <AlertTitle>Расписание используется</AlertTitle>
             <AlertDescription>
-              Оно привязано к {existing.meeting_types_count} Meeting Type.
+              Оно используется в типах встреч: {existing.meeting_types_count}.
               Удаление недоступно.
             </AlertDescription>
           </Alert>

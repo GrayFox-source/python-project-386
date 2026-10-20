@@ -61,7 +61,7 @@ function renderApp(initialPath = "/dashboard") {
 }
 
 function fillLoginForm(email = host.email, password = "secret") {
-  fireEvent.change(screen.getByLabelText("Email"), {
+  fireEvent.change(screen.getByLabelText("Электронная почта"), {
     target: { value: email },
   })
   fireEvent.change(screen.getByLabelText("Пароль"), {
@@ -192,7 +192,7 @@ describe("App auth flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Войти" }))
 
     expect(
-      await screen.findByText("Неверный email или пароль.")
+      await screen.findByText("Неверный адрес электронной почты или пароль.")
     ).toBeTruthy()
   })
 

@@ -175,7 +175,7 @@ export function MeetingTypeEditorPage() {
           <AlertTitle>Сначала создайте расписание</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>
-              Для типа встречи нужно выбрать Availability, по которому будут
+              Для типа встречи нужно выбрать расписание, по которому будут
               рассчитываться свободные слоты.
             </p>
             <Button asChild size="sm">
@@ -193,7 +193,7 @@ export function MeetingTypeEditorPage() {
     <main className="mx-auto max-w-4xl px-4 py-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm text-muted-foreground">Meeting Type</p>
+          <p className="text-sm text-muted-foreground">Тип встречи</p>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">
               {isNew ? "Новый тип встречи" : "Редактирование типа встречи"}
@@ -293,7 +293,7 @@ export function MeetingTypeEditorPage() {
             </div>
 
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="meeting-type-slug">Slug</Label>
+              <Label htmlFor="meeting-type-slug">Идентификатор ссылки</Label>
               <Input
                 id="meeting-type-slug"
                 maxLength={64}
@@ -303,15 +303,15 @@ export function MeetingTypeEditorPage() {
                 onChange={(event) => update("slug", event.target.value)}
               />
               <p className="text-sm text-muted-foreground">
-                Используется в Scheduling Link. Смена slug сделает старую
-                ссылку недействительной.
+                Используется в ссылке для записи. Смена идентификатора сделает
+                старую ссылку недействительной.
               </p>
               <FieldError message={fields.slug} />
             </div>
 
             {existing && (
               <div className="space-y-1 sm:col-span-2">
-                <p className="text-sm font-medium">Scheduling Link</p>
+                <p className="text-sm font-medium">Ссылка для записи</p>
                 <p className="break-all text-sm text-muted-foreground">
                   {existing.scheduling_link}
                 </p>
@@ -324,7 +324,7 @@ export function MeetingTypeEditorPage() {
           <CardHeader>
             <CardTitle>Расписание</CardTitle>
             <CardDescription>
-              Свободные слоты рассчитываются по выбранному Availability.
+              Свободные слоты рассчитываются по выбранному расписанию.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">

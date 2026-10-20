@@ -51,7 +51,7 @@ export function LoginPage() {
     } catch (loginError) {
       setError(
         isUnauthorizedError(loginError)
-          ? "Неверный email или пароль."
+          ? "Неверный адрес электронной почты или пароль."
           : "Не удалось войти. Повторите попытку."
       )
     } finally {
@@ -75,7 +75,7 @@ export function LoginPage() {
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Электронная почта</Label>
                 <Input
                   id="email"
                   name="email"
