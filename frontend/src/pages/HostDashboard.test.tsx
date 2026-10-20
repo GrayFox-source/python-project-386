@@ -36,18 +36,18 @@ describe("HostDashboard", () => {
       screen.getByRole("link", { name: "Создать тип встречи" })
     ).toBeTruthy()
     expect(
-      screen.getByRole("button", { name: "Все бронирования" })
+      screen.getByRole("link", { name: "Все бронирования" })
     ).toBeTruthy()
     expect(screen.getByRole("button", { name: "Настройки" })).toBeTruthy()
   })
 
-  it("renders exactly two buttons and one link", () => {
+  it("renders exactly one button and two links", () => {
     render(
       <MemoryRouter>
         <HostDashboard />
       </MemoryRouter>
     )
-    expect(screen.getAllByRole("button")).toHaveLength(2)
-    expect(screen.getAllByRole("link")).toHaveLength(1)
+    expect(screen.getAllByRole("button")).toHaveLength(1)
+    expect(screen.getAllByRole("link")).toHaveLength(2)
   })
 })

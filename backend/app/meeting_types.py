@@ -15,7 +15,7 @@ from app.availability import get_availability
 from app.config import Settings
 from app.db import get_db, utcnow
 from app.errors import domain_error, validation_error
-from app.models import HostRecord, MeetingTypeRecord
+from app.models import BookingRecord, HostRecord, MeetingTypeRecord
 from generated.models import (
     ConflictError,
     MeetingTypeListResponse,
@@ -407,7 +407,11 @@ def replace_host_meeting_type(
 @router.delete(
     "/{id}",
     status_code=204,
-    responses={**UNAUTHORIZED_RESPONSES, **NOT_FOUND_RESPONSES},
+    responses={
+        **UNAUTHORIZED_RESPONSES,
+        **NOT_FOUND_RESPONSES,
+        **CONFLICT_RESPONSES,
+    },
 )
 def remove_host_meeting_type(
     id: str,
@@ -415,6 +419,17 @@ def remove_host_meeting_type(
     session: Session = Depends(get_db),
 ) -> None:
     record = get_meeting_type(session, host, id)
+    has_bookings = session.scalar(
+        select(BookingRecord.id)
+        .where(BookingRecord.meeting_type_id == record.id)
+        .limit(1)
+    )
+    if has_bookings is not None:
+        domain_error(
+            409,
+            "meeting_type_in_use",
+            "Meeting Type has Bookings and cannot be deleted.",
+        )
     session.delete(record)
     session.commit()
 

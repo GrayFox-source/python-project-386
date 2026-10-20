@@ -11,6 +11,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Time,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -187,3 +188,83 @@ class MeetingTypeRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False
     )
+
+
+class BookingRecord(Base):
+    __tablename__ = "bookings"
+    __table_args__ = (
+        Index(
+            "uq_bookings_host_active_start",
+            "host_id",
+            "starts_at",
+            unique=True,
+            sqlite_where=text("status IN ('pending', 'confirmed')"),
+            postgresql_where=text("status IN ('pending', 'confirmed')"),
+        ),
+        Index("ix_bookings_host_starts_at", "host_id", "starts_at"),
+        Index("ix_bookings_expires_at", "expires_at"),
+        Index("uq_bookings_token_hash", "token_hash", unique=True),
+        Index("ix_bookings_meeting_type_id", "meeting_type_id"),
+        CheckConstraint(
+            "status IN ('pending', 'confirmed', 'cancelled', 'expired')",
+            name="ck_bookings_status",
+        ),
+        CheckConstraint(
+            "cancelled_by IS NULL OR cancelled_by IN ('guest', 'host')",
+            name="ck_bookings_cancelled_by",
+        ),
+        CheckConstraint(
+            "starts_at < ends_at",
+            name="ck_bookings_time_order",
+        ),
+        CheckConstraint(
+            "expires_at <= starts_at",
+            name="ck_bookings_expires_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    host_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("hosts.id", ondelete="CASCADE"), nullable=False
+    )
+    meeting_type_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("meeting_types.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    guest_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    guest_email: Mapped[str] = mapped_column(String(320), nullable=False)
+    comment: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(16), default="pending", nullable=False
+    )
+    starts_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    ends_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    cancelled_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(), nullable=True
+    )
+    cancelled_by: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    cancellation_reason: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+
+class IdempotencyKeyRecord(Base):
+    __tablename__ = "idempotency_keys"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    booking_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("bookings.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)

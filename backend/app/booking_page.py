@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_app_settings
 from app.availability import rules_for, validate_timezone
+from app.booking_service import active_busy, expire_pending
 from app.config import Settings
-from app.db import get_db, utcnow
+from app.db import begin_write, get_db, utcnow
 from app.errors import domain_error
 from app.meeting_types import meeting_type_to_schema
 from app.models import AvailabilityRecord, MeetingTypeRecord
@@ -138,6 +139,10 @@ def list_public_slots(
     now: datetime = Depends(get_now),
 ) -> JSONResponse:
     record = require_active_meeting_type(session, slug)
+    begin_write(session)
+    expire_pending(session, now)
+    session.commit()
+
     display_timezone = validate_timezone(timezone)
     display_zone = ZoneInfo(display_timezone)
 
@@ -165,7 +170,7 @@ def list_public_slots(
         booking_horizon_days=record.booking_horizon_days,
         buffer_before_minutes=record.buffer_before_minutes,
         buffer_after_minutes=record.buffer_after_minutes,
-        busy=[],
+        busy=active_busy(session, record.host_id),
     )
 
     grouped: dict[date, list[dict[str, str]]] = {}

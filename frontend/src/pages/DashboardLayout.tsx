@@ -59,6 +59,14 @@ export function DashboardLayout() {
             >
               Типы встреч
             </NavLink>
+            <NavLink
+              className={({ isActive }) =>
+                isActive ? "font-medium" : "text-muted-foreground"
+              }
+              to="/dashboard/bookings"
+            >
+              Бронирования
+            </NavLink>
           </nav>
           <Button
             variant="outline"

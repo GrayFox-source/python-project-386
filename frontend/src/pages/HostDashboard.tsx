@@ -35,7 +35,9 @@ export default function HostDashboard() {
         <Button asChild>
           <Link to="/dashboard/meeting-types/new">Создать тип встречи</Link>
         </Button>
-        <Button variant="outline">Все бронирования</Button>
+        <Button variant="outline" asChild>
+          <Link to="/dashboard/bookings">Все бронирования</Link>
+        </Button>
         <Button variant="outline">Настройки</Button>
       </div>
     </main>

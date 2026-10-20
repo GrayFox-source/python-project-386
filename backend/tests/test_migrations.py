@@ -72,3 +72,32 @@ def test_migrations_apply_to_empty_database(tmp_path: Path) -> None:
         "ix_meeting_types_host_created",
         "uq_meeting_types_host_slug",
     }
+    assert {"bookings", "idempotency_keys"} <= set(inspector.get_table_names())
+    assert {column["name"] for column in inspector.get_columns("bookings")} == {
+        "id",
+        "host_id",
+        "meeting_type_id",
+        "guest_name",
+        "guest_email",
+        "comment",
+        "status",
+        "starts_at",
+        "ends_at",
+        "expires_at",
+        "cancelled_at",
+        "cancelled_by",
+        "cancellation_reason",
+        "token_hash",
+        "created_at",
+        "updated_at",
+    }
+    assert {index["name"] for index in inspector.get_indexes("bookings")} >= {
+        "uq_bookings_host_active_start",
+        "ix_bookings_host_starts_at",
+        "ix_bookings_expires_at",
+        "uq_bookings_token_hash",
+        "ix_bookings_meeting_type_id",
+    }
+    assert {
+        column["name"] for column in inspector.get_columns("idempotency_keys")
+    } == {"key", "booking_id", "request_hash", "expires_at"}

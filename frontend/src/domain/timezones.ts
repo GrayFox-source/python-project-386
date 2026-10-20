@@ -71,3 +71,11 @@ export function formatTime(value: string, timeZone: string): string {
     timeZone,
   }).format(new Date(value))
 }
+
+export function formatDateTime(value: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone,
+  }).format(new Date(value))
+}

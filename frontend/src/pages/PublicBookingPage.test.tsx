@@ -7,6 +7,10 @@ vi.mock("@/api/booking-page", () => ({
   listPublicSlots: vi.fn(),
 }))
 
+vi.mock("@/api/bookings", () => ({
+  createBooking: vi.fn(),
+}))
+
 vi.mock("@/domain/timezones", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/domain/timezones")>()
   return {
@@ -20,7 +24,12 @@ vi.mock("@/domain/timezones", async (importOriginal) => {
 })
 
 import { getPublicMeetingType, listPublicSlots } from "@/api/booking-page"
-import type { MeetingType, SlotListResponse } from "@/api/client"
+import { createBooking } from "@/api/bookings"
+import type {
+  BookingCreated,
+  MeetingType,
+  SlotListResponse,
+} from "@/api/client"
 import { ApiRequestError } from "@/api/request"
 
 import { PublicBookingPage } from "./PublicBookingPage"
@@ -64,6 +73,26 @@ const slotResponse: SlotListResponse = {
 
 const mockedGetMeetingType = vi.mocked(getPublicMeetingType)
 const mockedListSlots = vi.mocked(listPublicSlots)
+const mockedCreateBooking = vi.mocked(createBooking)
+
+const createdBooking: BookingCreated = {
+  id: "booking-1",
+  meeting_type_id: meetingType.id,
+  guest_name: "Иван",
+  guest_email: "guest@example.com",
+  comment: null,
+  status: "pending",
+  starts_at: "2026-01-05T06:00:00Z",
+  ends_at: "2026-01-05T06:30:00Z",
+  expires_at: "2026-01-06T05:00:00Z",
+  cancelled_at: null,
+  cancelled_by: null,
+  cancellation_reason: null,
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+  token: "secret-token",
+  booking_url: "http://localhost:5173/booking/secret-token",
+}
 
 function renderPage() {
   return render(
@@ -79,6 +108,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockedGetMeetingType.mockResolvedValue(meetingType)
   mockedListSlots.mockResolvedValue(slotResponse)
+  mockedCreateBooking.mockResolvedValue(createdBooking)
 })
 
 afterEach(cleanup)
@@ -114,8 +144,59 @@ describe("PublicBookingPage", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "06:00" }))
 
-    expect(screen.getByText("Выбрано время")).toBeTruthy()
+    expect(screen.getByText("Данные гостя")).toBeTruthy()
     expect(screen.getByText(/06:00 \(UTC\)/)).toBeTruthy()
+  })
+
+  it("creates a booking and shows the one-time link", async () => {
+    renderPage()
+
+    fireEvent.click(await screen.findByRole("button", { name: "06:00" }))
+    fireEvent.change(screen.getByLabelText("Имя"), {
+      target: { value: "Иван" },
+    })
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "guest@example.com" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Забронировать" }))
+
+    expect(await screen.findByText("Бронирование создано")).toBeTruthy()
+    expect(
+      screen.getByRole("link", {
+        name: "Открыть страницу бронирования",
+      }).getAttribute("href")
+    ).toBe("/booking/secret-token")
+    expect(mockedCreateBooking).toHaveBeenCalledWith(
+      "consultation",
+      expect.objectContaining({
+        guest_name: "Иван",
+        guest_email: "guest@example.com",
+        starts_at: "2026-01-05T06:00:00Z",
+      }),
+      expect.any(String)
+    )
+  })
+
+  it("shows a conflict message and refreshes slots", async () => {
+    mockedCreateBooking.mockRejectedValue(
+      new ApiRequestError({ detail: { code: "slot_taken" } }, 409)
+    )
+
+    renderPage()
+
+    fireEvent.click(await screen.findByRole("button", { name: "06:00" }))
+    fireEvent.change(screen.getByLabelText("Имя"), {
+      target: { value: "Иван" },
+    })
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "guest@example.com" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Забронировать" }))
+
+    expect(
+      await screen.findByText("Это время уже занято. Выберите другой слот.")
+    ).toBeTruthy()
+    expect(mockedListSlots).toHaveBeenCalledTimes(2)
   })
 
   it("shows an empty state when there are no slots", async () => {

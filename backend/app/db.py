@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request
-from sqlalchemy import DateTime, Engine, create_engine, event
+from sqlalchemy import DateTime, Engine, create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.types import TypeDecorator
 
@@ -39,7 +39,9 @@ class UTCDateTime(TypeDecorator[datetime]):
 
 def create_db_engine(database_url: str) -> Engine:
     connect_args = (
-        {"check_same_thread": False} if database_url.startswith("sqlite") else {}
+        {"check_same_thread": False, "isolation_level": "IMMEDIATE"}
+        if database_url.startswith("sqlite")
+        else {}
     )
     engine = create_engine(database_url, connect_args=connect_args)
 
@@ -49,6 +51,7 @@ def create_db_engine(database_url: str) -> Engine:
         def enable_foreign_keys(dbapi_connection: Any, _record: Any) -> None:
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA busy_timeout=5000")
             cursor.close()
 
     return engine
@@ -61,6 +64,12 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 def get_db(request: Request) -> Iterator[Session]:
     with request.app.state.session_factory() as session:
         yield session
+
+
+def begin_write(session: Session) -> None:
+    bind = session.get_bind()
+    if bind.dialect.name == "sqlite" and not session.in_transaction():
+        session.execute(text("BEGIN IMMEDIATE"))
 
 
 def utcnow() -> datetime:

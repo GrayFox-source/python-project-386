@@ -291,6 +291,81 @@ model Booking {
   updated_at: utcDateTime;
 }
 
+@doc("Input payload for creating a Booking from a valid Slot.")
+model BookingCreate {
+  @doc("Guest name, required.")
+  guest_name: string;
+
+  @doc("Guest email, required and normalised to lower case.")
+  guest_email: string;
+
+  @doc("Optional free-form comment, at most 1000 characters.")
+  comment?: string | null;
+
+  @doc("Slot start as a UTC instant (RFC 3339 with offset).")
+  starts_at: utcDateTime;
+}
+
+@doc("Result of creating a Booking. `token` and `booking_url` are present only on the first creation.")
+model BookingCreated {
+  ...Booking;
+
+  @doc("Plaintext Guest bearer token. Returned exactly once; only its SHA-256 hash is stored.")
+  token: string | null;
+
+  @doc("One-time URL with the plaintext token: `{origin}/booking/{token}`.")
+  booking_url: string | null;
+}
+
+@doc("HTTP 201 response for a newly created Booking.")
+model BookingCreatedResponse {
+  @statusCode _: 201;
+  ...BookingCreated;
+}
+
+@doc("Optional cancellation payload.")
+model BookingCancel {
+  @doc("Optional cancellation reason, at most 500 characters.")
+  cancellation_reason?: string | null;
+}
+
+@doc("Public summary of the Meeting Type shown on the Guest Booking page.")
+model BookingMeetingTypeSummary {
+  title: string;
+  description?: string | null;
+  duration_minutes: int32;
+  format: MeetingTypeFormat;
+  location?: string | null;
+}
+
+@doc("A Booking as seen by its Guest through the bearer token. Host internals and identifiers are hidden.")
+model GuestBookingView {
+  guest_name: string;
+  guest_email: string;
+  comment?: string | null;
+  status: BookingStatus;
+  starts_at: utcDateTime;
+  ends_at: utcDateTime;
+  expires_at: utcDateTime;
+  cancelled_at?: utcDateTime | null;
+  cancelled_by?: CancelledBy | null;
+  cancellation_reason?: string | null;
+  created_at: utcDateTime;
+  meeting_type: BookingMeetingTypeSummary;
+}
+
+@doc("A Booking as seen by the Host, with Guest details and Meeting Type summary.")
+model HostBooking {
+  ...Booking;
+  meeting_type_title: string;
+  meeting_type_slug: string;
+}
+
+model HostBookingListResponse {
+  items: HostBooking[];
+  total: int32;
+}
+
 // ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
@@ -436,10 +511,10 @@ interface HostMeetingTypes {
   @delete
   @route("/{id}")
   @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
-  @doc("Delete a Meeting Type. Booking-related deletion guards will be added with the Booking lifecycle.")
+  @doc("Delete a Meeting Type that has no Bookings.")
   remove(@path id: string): {
     @statusCode _: 204;
-  } | UnauthorizedError | NotFoundError;
+  } | UnauthorizedError | NotFoundError | ConflictError;
 
   @post
   @route("/{id}/archive")
@@ -471,4 +546,79 @@ interface BookingPage {
     @query to: plainDate,
     @query timezone: string,
   ): SlotListResponse | NotFoundError | GoneError | ValidationErrorResponse;
+
+  @post
+  @route("/{slug}/bookings")
+  @doc("Create a pending Booking. A repeated Idempotency-Key returns the current state with 200 instead of creating a second Booking.")
+  createBooking(
+    @path slug: string,
+    @header("Idempotency-Key") idempotencyKey?: string,
+    @body body: BookingCreate,
+  ):
+    | BookingCreatedResponse
+    | BookingCreated
+    | NotFoundError
+    | GoneError
+    | ConflictError
+    | ValidationErrorResponse;
+}
+
+@route("/bookings")
+@tag("Guest Bookings")
+interface GuestBookings {
+  @get
+  @route("/{token}")
+  @doc("View one Booking by its Guest bearer token. Returns 404 after `starts_at + 7 days`.")
+  get(@path token: string): GuestBookingView | NotFoundError;
+
+  @post
+  @route("/{token}/cancel")
+  @doc("Cancel one Booking by its Guest bearer token, before `starts_at`.")
+  cancel(
+    @path token: string,
+    @body body: BookingCancel,
+  ): GuestBookingView | NotFoundError | ConflictError | ValidationErrorResponse;
+}
+
+@route("/hosts/me/bookings")
+@tag("Host Bookings")
+interface HostBookings {
+  @get
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("List Host-scoped Bookings, optionally filtered by status and start range.")
+  list(
+    @query status?: BookingStatus,
+    @query from?: utcDateTime,
+    @query to?: utcDateTime,
+    @query limit?: int32,
+    @query offset?: int32,
+  ): HostBookingListResponse | UnauthorizedError | ValidationErrorResponse;
+
+  @get
+  @route("/{id}")
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Get one Host-scoped Booking.")
+  get(@path id: string): HostBooking | UnauthorizedError | NotFoundError;
+
+  @post
+  @route("/{id}/confirm")
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Confirm a pending Booking before `expires_at`.")
+  confirm(
+    @path id: string,
+  ): HostBooking | UnauthorizedError | NotFoundError | ConflictError;
+
+  @post
+  @route("/{id}/cancel")
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Cancel a pending or confirmed Booking before `starts_at`.")
+  cancel(
+    @path id: string,
+    @body body: BookingCancel,
+  ):
+    | HostBooking
+    | UnauthorizedError
+    | NotFoundError
+    | ConflictError
+    | ValidationErrorResponse;
 }

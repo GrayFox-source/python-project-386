@@ -3,7 +3,9 @@ import { Navigate, Route, Routes } from "react-router-dom"
 import { ProtectedRoute } from "@/auth/ProtectedRoute"
 import { AvailabilityEditorPage } from "@/pages/AvailabilityEditorPage"
 import { AvailabilityListPage } from "@/pages/AvailabilityListPage"
+import { BookingStatusPage } from "@/pages/BookingStatusPage"
 import { DashboardLayout } from "@/pages/DashboardLayout"
+import { HostBookingsPage } from "@/pages/HostBookingsPage"
 import HostDashboard from "@/pages/HostDashboard"
 import { LoginPage } from "@/pages/LoginPage"
 import { MeetingTypeEditorPage } from "@/pages/MeetingTypeEditorPage"
@@ -17,9 +19,14 @@ function App() {
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/book/:slug" element={<PublicBookingPage />} />
+      <Route path="/booking/:token" element={<BookingStatusPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<HostDashboard />} />
+          <Route
+            path="/dashboard/bookings"
+            element={<HostBookingsPage />}
+          />
           <Route
             path="/dashboard/availability"
             element={<AvailabilityListPage />}

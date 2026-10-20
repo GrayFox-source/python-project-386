@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react"
-import { useParams } from "react-router-dom"
+import { useEffect, useMemo, useRef, useState } from "react"
+import type { FormEvent } from "react"
+import { Link, useParams } from "react-router-dom"
 
 import { getPublicMeetingType, listPublicSlots } from "@/api/booking-page"
-import type { MeetingType, SlotDay } from "@/api/client"
+import { createBooking } from "@/api/bookings"
+import type { BookingCreated, MeetingType, SlotDay } from "@/api/client"
 import { ApiRequestError } from "@/api/request"
 import { PageLoading } from "@/components/PageLoading"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -14,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -22,9 +26,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import {
   browserTimezone,
   formatDateLabel,
+  formatDateTime,
   formatTime,
   nextLocalDates,
   supportedTimezones,
@@ -50,6 +56,15 @@ type Selection = {
   start: string
 }
 
+type SubmitState = "idle" | "submitting" | "error"
+
+function newIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
 function formatLabel(format: MeetingType["format"]): string {
   return format === "online" ? "Онлайн" : "Оффлайн"
 }
@@ -64,6 +79,13 @@ export function PublicBookingPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [metaReload, setMetaReload] = useState(0)
   const [slotsReload, setSlotsReload] = useState(0)
+  const [guestName, setGuestName] = useState("")
+  const [guestEmail, setGuestEmail] = useState("")
+  const [comment, setComment] = useState("")
+  const [submitState, setSubmitState] = useState<SubmitState>("idle")
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [created, setCreated] = useState<BookingCreated | null>(null)
+  const idempotencyKey = useRef<string | null>(null)
 
   const dateRange = useMemo(
     () => nextLocalDates(now, timezone, VISIBLE_DAYS),
@@ -145,6 +167,52 @@ export function PublicBookingPage() {
     }
   }, [slug, metaState, from, to, timezone, slotsKey])
 
+  async function handleBooking(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!slug || !selection) return
+
+    const key = idempotencyKey.current ?? newIdempotencyKey()
+    idempotencyKey.current = key
+    setSubmitState("submitting")
+    setSubmitError(null)
+
+    try {
+      const booking = await createBooking(
+        slug,
+        {
+          guest_name: guestName,
+          guest_email: guestEmail,
+          comment: comment.trim() || null,
+          starts_at: selection.start,
+        },
+        key
+      )
+      setCreated(booking)
+    } catch (error) {
+      if (
+        error instanceof ApiRequestError &&
+        (error.code === "slot_taken" ||
+          error.code === "slot_unavailable")
+      ) {
+        setSubmitError(
+          error.code === "slot_taken"
+            ? "Это время уже занято. Выберите другой слот."
+            : "Это время больше недоступно. Обновите список слотов."
+        )
+        setSelection(null)
+        setSlotsReload((value) => value + 1)
+        idempotencyKey.current = null
+      } else {
+        setSubmitError(
+          error instanceof ApiRequestError
+            ? error.message
+            : "Не удалось создать бронирование."
+        )
+      }
+      setSubmitState("error")
+    }
+  }
+
   if (!slug) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-10">
@@ -204,6 +272,45 @@ export function PublicBookingPage() {
             </Button>
           </AlertDescription>
         </Alert>
+      </main>
+    )
+  }
+
+  if (created) {
+    const bookingPath = created.token ? `/booking/${created.token}` : null
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-10">
+        <Card>
+          <CardHeader>
+            <CardTitle role="heading" aria-level={1}>
+              Бронирование создано
+            </CardTitle>
+            <CardDescription>
+              Заявка отправлена Хосту. Он подтвердит или отменит встречу.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <p className="font-medium">{meta.title}</p>
+            <p>
+              {formatDateTime(created.starts_at, timezone)} ({timezone})
+            </p>
+            <Badge variant="secondary">Ожидает подтверждения</Badge>
+            {bookingPath && (
+              <p>
+                <Link className="underline" to={bookingPath}>
+                  Открыть страницу бронирования
+                </Link>
+              </p>
+            )}
+            <Alert>
+              <AlertTitle>Сохраните ссылку</AlertTitle>
+              <AlertDescription>
+                Ссылка на бронирование показывается только один раз. По ней
+                можно посмотреть статус и отменить встречу.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
       </main>
     )
   }
@@ -333,9 +440,12 @@ export function PublicBookingPage() {
                             size="sm"
                             type="button"
                             variant={isSelected ? "default" : "outline"}
-                            onClick={() =>
+                            onClick={() => {
                               setSelection({ date, start: slot.start })
-                            }
+                              setSubmitState("idle")
+                              setSubmitError(null)
+                              idempotencyKey.current = null
+                            }}
                           >
                             {formatTime(slot.start, timezone)}
                           </Button>
@@ -349,14 +459,75 @@ export function PublicBookingPage() {
           </div>
         )}
 
-        {selection && selectedSlotDay && (
-          <Alert>
-            <AlertTitle>Выбрано время</AlertTitle>
-            <AlertDescription>
-              {formatDateLabel(selectedSlotDay.date)},{" "}
-              {formatTime(selection.start, timezone)} ({timezone})
-            </AlertDescription>
+        {submitError && !selection && (
+          <Alert variant="destructive">
+            <AlertTitle>Не удалось создать бронирование</AlertTitle>
+            <AlertDescription>{submitError}</AlertDescription>
           </Alert>
+        )}
+
+        {selection && selectedSlotDay && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Данные гостя</CardTitle>
+              <CardDescription>
+                {formatDateLabel(selectedSlotDay.date)},{" "}
+                {formatTime(selection.start, timezone)} ({timezone})
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4" onSubmit={handleBooking}>
+                <div className="space-y-2">
+                  <Label htmlFor="guest-name">Имя</Label>
+                  <Input
+                    id="guest-name"
+                    required
+                    maxLength={200}
+                    value={guestName}
+                    onChange={(event) => setGuestName(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="guest-email">Email</Label>
+                  <Input
+                    id="guest-email"
+                    type="email"
+                    required
+                    maxLength={320}
+                    value={guestEmail}
+                    onChange={(event) => setGuestEmail(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="guest-comment">Комментарий</Label>
+                  <Textarea
+                    id="guest-comment"
+                    maxLength={1000}
+                    value={comment}
+                    onChange={(event) => setComment(event.target.value)}
+                  />
+                </div>
+
+                {submitError && (
+                  <Alert variant="destructive">
+                    <AlertTitle>
+                      Не удалось создать бронирование
+                    </AlertTitle>
+                    <AlertDescription>{submitError}</AlertDescription>
+                  </Alert>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={submitState === "submitting"}
+                >
+                  {submitState === "submitting"
+                    ? "Бронируем…"
+                    : "Забронировать"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         )}
       </section>
     </main>
