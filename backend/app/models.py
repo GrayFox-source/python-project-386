@@ -104,6 +104,86 @@ class AvailabilityRuleRecord(Base):
     date: Mapped[date_type | None] = mapped_column(Date, nullable=True)
     start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
-    is_closed: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
+    is_closed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
+class MeetingTypeRecord(Base):
+    __tablename__ = "meeting_types"
+    __table_args__ = (
+        Index(
+            "uq_meeting_types_host_slug",
+            "host_id",
+            "slug",
+            unique=True,
+        ),
+        Index("ix_meeting_types_availability_id", "availability_id"),
+        Index("ix_meeting_types_host_created", "host_id", "created_at"),
+        CheckConstraint(
+            "format IN ('online', 'offline')",
+            name="ck_meeting_types_format",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'archived')",
+            name="ck_meeting_types_status",
+        ),
+        CheckConstraint(
+            "duration_minutes BETWEEN 5 AND 480",
+            name="ck_meeting_types_duration",
+        ),
+        CheckConstraint(
+            "buffer_before_minutes BETWEEN 0 AND 120",
+            name="ck_meeting_types_buffer_before",
+        ),
+        CheckConstraint(
+            "buffer_after_minutes BETWEEN 0 AND 120",
+            name="ck_meeting_types_buffer_after",
+        ),
+        CheckConstraint(
+            "minimum_notice_minutes BETWEEN 0 AND 10080",
+            name="ck_meeting_types_minimum_notice",
+        ),
+        CheckConstraint(
+            "booking_horizon_days BETWEEN 1 AND 365",
+            name="ck_meeting_types_booking_horizon",
+        ),
+        CheckConstraint(
+            "slot_interval_minutes BETWEEN 5 AND 480",
+            name="ck_meeting_types_slot_interval",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    host_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("hosts.id", ondelete="CASCADE"), nullable=False
+    )
+    availability_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("availabilities.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    title: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    duration_minutes: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    format: Mapped[str] = mapped_column(String(16), nullable=False)
+    location: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="active", nullable=False)
+    buffer_before_minutes: Mapped[int] = mapped_column(
+        SmallInteger, default=0, nullable=False
+    )
+    buffer_after_minutes: Mapped[int] = mapped_column(
+        SmallInteger, default=0, nullable=False
+    )
+    minimum_notice_minutes: Mapped[int] = mapped_column(
+        SmallInteger, default=120, nullable=False
+    )
+    booking_horizon_days: Mapped[int] = mapped_column(
+        SmallInteger, default=60, nullable=False
+    )
+    slot_interval_minutes: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False
     )

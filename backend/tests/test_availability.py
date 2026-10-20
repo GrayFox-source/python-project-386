@@ -42,9 +42,7 @@ def availability_payload(**overrides: Any) -> dict[str, Any]:
     return payload
 
 
-def create_availability(
-    client: TestClient, **overrides: Any
-) -> dict[str, Any]:
+def create_availability(client: TestClient, **overrides: Any) -> dict[str, Any]:
     response = client.post(
         "/hosts/me/availabilities",
         json=availability_payload(**overrides),
@@ -181,10 +179,7 @@ def test_name_is_trimmed_validated_and_unique_case_insensitively(
         json=availability_payload(name="фокус"),
     )
     assert cyrillic_duplicate.status_code == 422
-    assert (
-        cyrillic_duplicate.json()["detail"]["code"]
-        == "duplicate_availability_name"
-    )
+    assert cyrillic_duplicate.json()["detail"]["code"] == "duplicate_availability_name"
 
     second = create_availability(client, name="Other")
     renamed = client.put(
@@ -270,17 +265,13 @@ def test_window_grid_length_and_count_are_validated(client: TestClient) -> None:
 
     off_grid = client.post(
         "/hosts/me/availabilities",
-        json=availability_payload(
-            weekly={"1": [{"start": "09:07", "end": "10:00"}]}
-        ),
+        json=availability_payload(weekly={"1": [{"start": "09:07", "end": "10:00"}]}),
     )
     assert off_grid.status_code == 422
 
     zero_length = client.post(
         "/hosts/me/availabilities",
-        json=availability_payload(
-            weekly={"1": [{"start": "09:00", "end": "09:00"}]}
-        ),
+        json=availability_payload(weekly={"1": [{"start": "09:00", "end": "09:00"}]}),
     )
     assert zero_length.status_code == 422
 
@@ -299,28 +290,20 @@ def test_window_grid_length_and_count_are_validated(client: TestClient) -> None:
 
     midnight_end = client.post(
         "/hosts/me/availabilities",
-        json=availability_payload(
-            weekly={"1": [{"start": "23:00", "end": "24:00"}]}
-        ),
+        json=availability_payload(weekly={"1": [{"start": "23:00", "end": "24:00"}]}),
     )
     assert midnight_end.status_code == 200
-    assert midnight_end.json()["weekly"]["1"] == [
-        {"start": "23:00", "end": "24:00"}
-    ]
+    assert midnight_end.json()["weekly"]["1"] == [{"start": "23:00", "end": "24:00"}]
 
     midnight_start = client.post(
         "/hosts/me/availabilities",
-        json=availability_payload(
-            weekly={"1": [{"start": "24:00", "end": "24:00"}]}
-        ),
+        json=availability_payload(weekly={"1": [{"start": "24:00", "end": "24:00"}]}),
     )
     assert midnight_start.status_code == 422
 
     invalid_day = client.post(
         "/hosts/me/availabilities",
-        json=availability_payload(
-            weekly={"8": [{"start": "09:00", "end": "10:00"}]}
-        ),
+        json=availability_payload(weekly={"8": [{"start": "09:00", "end": "10:00"}]}),
     )
     assert invalid_day.status_code == 422
 
@@ -357,9 +340,7 @@ def test_override_validation(client: TestClient) -> None:
 
     open_without_intervals = client.post(
         "/hosts/me/availabilities",
-        json=availability_payload(
-            overrides=[{"date": "2026-11-03", "closed": False}]
-        ),
+        json=availability_payload(overrides=[{"date": "2026-11-03", "closed": False}]),
     )
     assert open_without_intervals.status_code == 422
     assert open_without_intervals.json()["detail"]["code"] == "invalid_override"
@@ -414,32 +395,40 @@ def test_delete_cascades_availability_rules(client: TestClient, app) -> None:
     created = create_availability(client)
 
     with app.state.session_factory() as session:
-        count = session.scalar(
-            select(func.count()).select_from(AvailabilityRuleRecord)
-        )
+        count = session.scalar(select(func.count()).select_from(AvailabilityRuleRecord))
         assert count and count > 0
 
-    assert (
-        client.delete(f"/hosts/me/availabilities/{created['id']}").status_code
-        == 204
-    )
+    assert client.delete(f"/hosts/me/availabilities/{created['id']}").status_code == 204
 
     with app.state.session_factory() as session:
-        count = session.scalar(
-            select(func.count()).select_from(AvailabilityRuleRecord)
-        )
+        count = session.scalar(select(func.count()).select_from(AvailabilityRuleRecord))
         assert count == 0
 
 
-def test_delete_in_use_availability_returns_conflict(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_delete_in_use_availability_returns_conflict(client: TestClient) -> None:
     login(client)
     created = create_availability(client)
+    meeting_type = client.post(
+        "/hosts/me/meeting-types",
+        json={
+            "title": "Discovery Call",
+            "duration_minutes": 30,
+            "format": "online",
+            "availability_id": created["id"],
+        },
+    )
+    assert meeting_type.status_code == 200, meeting_type.text
 
-    monkeypatch.setattr(
-        "app.availability.meeting_types_count",
-        lambda _session, _availability_id: 1,
+    fetched = client.get(f"/hosts/me/availabilities/{created['id']}")
+    assert fetched.json()["meeting_types_count"] == 1
+    listed = client.get("/hosts/me/availabilities").json()
+    assert listed["items"][0]["meeting_types_count"] == 1
+
+    assert (
+        client.post(
+            f"/hosts/me/meeting-types/{meeting_type.json()['id']}/archive"
+        ).status_code
+        == 200
     )
     response = client.delete(f"/hosts/me/availabilities/{created['id']}")
 

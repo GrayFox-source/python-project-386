@@ -10,6 +10,7 @@ from app.auth import router as auth_router
 from app.availability import router as availability_router
 from app.config import Settings, get_settings
 from app.db import create_db_engine, create_session_factory
+from app.meeting_types import router as meeting_types_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -53,4 +54,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(auth_router)
     app.include_router(availability_router)
+    app.include_router(meeting_types_router)
     return app

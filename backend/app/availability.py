@@ -4,13 +4,19 @@ from datetime import time
 from typing import NoReturn
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.auth import UNAUTHORIZED_RESPONSES, get_current_host
 from app.db import get_db, utcnow
-from app.models import AvailabilityRecord, AvailabilityRuleRecord, HostRecord
+from app.errors import domain_error, validation_error
+from app.models import (
+    AvailabilityRecord,
+    AvailabilityRuleRecord,
+    HostRecord,
+    MeetingTypeRecord,
+)
 from generated.models import (
     Availability as AvailabilitySchema,
 )
@@ -45,29 +51,6 @@ class RuleData:
     is_closed: bool = False
 
 
-def domain_error(status_code: int, code: str, message: str) -> NoReturn:
-    raise HTTPException(
-        status_code=status_code,
-        detail={"code": code, "message": message},
-    )
-
-
-def validation_error(
-    loc: list[str | int],
-    message: str,
-    *,
-    code: str | None = None,
-) -> NoReturn:
-    issue: dict[str, object] = {
-        "loc": ["body", *loc],
-        "msg": message,
-        "type": "value_error",
-    }
-    if code is not None:
-        issue["code"] = code
-    raise HTTPException(status_code=422, detail=[issue])
-
-
 def availability_not_found() -> NoReturn:
     domain_error(404, "availability_not_found", "Availability not found.")
 
@@ -75,9 +58,7 @@ def availability_not_found() -> NoReturn:
 def validate_name(name: str) -> str:
     stripped = name.strip()
     if not 1 <= len(stripped) <= 100:
-        validation_error(
-            ["name"], "Name must contain between 1 and 100 characters."
-        )
+        validation_error(["name"], "Name must contain between 1 and 100 characters.")
     return stripped
 
 
@@ -111,10 +92,7 @@ def build_intervals(
         )
 
     intervals = sorted(
-        (
-            parse_window(window, [*loc, index])
-            for index, window in enumerate(windows)
-        ),
+        (parse_window(window, [*loc, index]) for index, window in enumerate(windows)),
         key=lambda interval: interval[0],
     )
 
@@ -183,9 +161,7 @@ def build_rules(payload: AvailabilityWrite) -> list[RuleData]:
                 "An open override must contain at least one interval.",
             )
 
-        for start, end in build_intervals(
-            intervals, ["overrides", index, "intervals"]
-        ):
+        for start, end in build_intervals(intervals, ["overrides", index, "intervals"]):
             rules.append(
                 RuleData(
                     kind="override",
@@ -244,8 +220,13 @@ def ensure_name_available(
         )
 
 
-def meeting_types_count(_session: Session, _availability_id: str) -> int:
-    return 0
+def meeting_types_count(session: Session, availability_id: str) -> int:
+    count = session.scalar(
+        select(func.count())
+        .select_from(MeetingTypeRecord)
+        .where(MeetingTypeRecord.availability_id == availability_id)
+    )
+    return count or 0
 
 
 def format_time(value: time, *, end: bool = False) -> str:
@@ -382,6 +363,7 @@ def list_host_availabilities(
     rules_by_id: dict[str, list[AvailabilityRuleRecord]] = {
         record.id: [] for record in records
     }
+    counts_by_id: dict[str, int] = {}
     if records:
         rules = session.scalars(
             select(AvailabilityRuleRecord).where(
@@ -391,9 +373,23 @@ def list_host_availabilities(
         for rule in rules:
             rules_by_id[rule.availability_id].append(rule)
 
+        counts = session.execute(
+            select(
+                MeetingTypeRecord.availability_id,
+                func.count(),
+            )
+            .where(MeetingTypeRecord.availability_id.in_(rules_by_id))
+            .group_by(MeetingTypeRecord.availability_id)
+        )
+        counts_by_id = {availability_id: count for availability_id, count in counts}
+
     return AvailabilityListResponse(
         items=[
-            rules_to_schema(record, rules_by_id[record.id])
+            rules_to_schema(
+                record,
+                rules_by_id[record.id],
+                counts_by_id.get(record.id, 0),
+            )
             for record in records
         ],
         total=total or 0,
@@ -444,7 +440,11 @@ def get_host_availability(
     session: Session = Depends(get_db),
 ) -> AvailabilitySchema:
     record = get_availability(session, host, id)
-    return rules_to_schema(record, rules_for(session, record.id))
+    return rules_to_schema(
+        record,
+        rules_for(session, record.id),
+        meeting_types_count(session, record.id),
+    )
 
 
 @router.put(
@@ -476,7 +476,11 @@ def replace_host_availability(
     session.commit()
     session.refresh(record)
 
-    return rules_to_schema(record, rules_for(session, record.id))
+    return rules_to_schema(
+        record,
+        rules_for(session, record.id),
+        meeting_types_count(session, record.id),
+    )
 
 
 @router.delete(

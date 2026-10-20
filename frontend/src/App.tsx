@@ -6,6 +6,8 @@ import { AvailabilityListPage } from "@/pages/AvailabilityListPage"
 import { DashboardLayout } from "@/pages/DashboardLayout"
 import HostDashboard from "@/pages/HostDashboard"
 import { LoginPage } from "@/pages/LoginPage"
+import { MeetingTypeEditorPage } from "@/pages/MeetingTypeEditorPage"
+import { MeetingTypeListPage } from "@/pages/MeetingTypeListPage"
 import { NotFoundPage } from "@/pages/NotFoundPage"
 
 function App() {
@@ -27,6 +29,18 @@ function App() {
           <Route
             path="/dashboard/availability/:id"
             element={<AvailabilityEditorPage />}
+          />
+          <Route
+            path="/dashboard/meeting-types"
+            element={<MeetingTypeListPage />}
+          />
+          <Route
+            path="/dashboard/meeting-types/new"
+            element={<MeetingTypeEditorPage />}
+          />
+          <Route
+            path="/dashboard/meeting-types/:id"
+            element={<MeetingTypeEditorPage />}
           />
         </Route>
       </Route>

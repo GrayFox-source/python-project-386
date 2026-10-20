@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     cookie_name: str = "host_session"
     jwt_ttl_days: int = 7
+    public_base_url: str = "http://localhost:5173"
 
     @field_validator("host_timezone")
     @classmethod

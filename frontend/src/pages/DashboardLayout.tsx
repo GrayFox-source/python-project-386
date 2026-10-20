@@ -51,6 +51,14 @@ export function DashboardLayout() {
             >
               Расписания
             </NavLink>
+            <NavLink
+              className={({ isActive }) =>
+                isActive ? "font-medium" : "text-muted-foreground"
+              }
+              to="/dashboard/meeting-types"
+            >
+              Типы встреч
+            </NavLink>
           </nav>
           <Button
             variant="outline"

@@ -5,6 +5,7 @@ info:
 tags:
   - name: Auth
   - name: Availabilities
+  - name: Meeting Types
   - name: Booking Page
 paths:
   /auth/login:
@@ -331,6 +332,264 @@ paths:
                 $ref: '#/components/schemas/ConflictError'
       tags:
         - Availabilities
+      security:
+        - ApiKeyAuth: []
+  /hosts/me/meeting-types:
+    get:
+      operationId: HostMeetingTypes_list
+      description: List Host-scoped Meeting Types, newest first.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingTypeListResponse'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+      tags:
+        - Meeting Types
+      security:
+        - ApiKeyAuth: []
+    post:
+      operationId: HostMeetingTypes_create
+      description: Create an active Meeting Type.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictError'
+        '422':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+      tags:
+        - Meeting Types
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetingTypeWrite'
+      security:
+        - ApiKeyAuth: []
+  /hosts/me/meeting-types/{id}:
+    get:
+      operationId: HostMeetingTypes_get
+      description: Get one Host-scoped Meeting Type.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+      tags:
+        - Meeting Types
+      security:
+        - ApiKeyAuth: []
+    put:
+      operationId: HostMeetingTypes_replace
+      description: Replace a Meeting Type's editable fields. Status is changed only by archive/unarchive.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictError'
+        '422':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+      tags:
+        - Meeting Types
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetingTypeWrite'
+      security:
+        - ApiKeyAuth: []
+    delete:
+      operationId: HostMeetingTypes_remove
+      description: Delete a Meeting Type. Booking-related deletion guards will be added with the Booking lifecycle.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+      tags:
+        - Meeting Types
+      security:
+        - ApiKeyAuth: []
+  /hosts/me/meeting-types/{id}/archive:
+    post:
+      operationId: HostMeetingTypes_archive
+      description: Archive a Meeting Type while keeping its slug reserved.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+      tags:
+        - Meeting Types
+      security:
+        - ApiKeyAuth: []
+  /hosts/me/meeting-types/{id}/unarchive:
+    post:
+      operationId: HostMeetingTypes_unarchive
+      description: Return an archived Meeting Type to active use with the same slug.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+      tags:
+        - Meeting Types
       security:
         - ApiKeyAuth: []
 components:
@@ -673,12 +932,79 @@ components:
         - online
         - offline
       description: How a Meeting Type is held.
+    MeetingTypeListResponse:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MeetingType'
+        total:
+          type: integer
+          format: int32
     MeetingTypeStatus:
       type: string
       enum:
         - active
         - archived
       description: Lifecycle status of a Meeting Type. Archived types reject new Bookings but keep existing ones.
+    MeetingTypeWrite:
+      type: object
+      required:
+        - title
+        - duration_minutes
+        - format
+        - availability_id
+      properties:
+        title:
+          type: string
+          description: 1–120 characters after trim.
+        description:
+          anyOf:
+            - type: string
+            - type: 'null'
+          description: Optional, at most 2000 characters. Trimmed; an empty string is stored as null.
+        duration_minutes:
+          type: integer
+          format: int32
+          description: 5–480 minutes.
+        format:
+          $ref: '#/components/schemas/MeetingTypeFormat'
+        location:
+          anyOf:
+            - type: string
+            - type: 'null'
+          description: Optional link (online) or address (offline), at most 500 characters. Trimmed; an empty string is stored as null.
+        slug:
+          type: string
+          description: Optional URL-safe identifier, unique per Host. Omit to generate from the title.
+        availability_id:
+          type: string
+          description: Availability the Meeting Type draws its Slots from.
+        buffer_before_minutes:
+          type: integer
+          format: int32
+          description: 0–120 minutes. Defaults to 0.
+        buffer_after_minutes:
+          type: integer
+          format: int32
+          description: 0–120 minutes. Defaults to 0.
+        minimum_notice_minutes:
+          type: integer
+          format: int32
+          description: 0–10080 minutes. Defaults to 120.
+        booking_horizon_days:
+          type: integer
+          format: int32
+          description: 1–365 calendar days. Defaults to 60.
+        slot_interval_minutes:
+          type: integer
+          format: int32
+          description: 5–480 minutes. Defaults to `duration_minutes`.
+      description: Input payload for creating or replacing a Meeting Type. On create, omit slug to generate one from the title; on replace, omit it to keep the current slug.
     NotFoundError:
       type: object
       required:

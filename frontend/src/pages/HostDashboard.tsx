@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom"
+
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -30,7 +32,9 @@ export default function HostDashboard() {
       </Card>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <Button>Создать тип встречи</Button>
+        <Button asChild>
+          <Link to="/dashboard/meeting-types/new">Создать тип встречи</Link>
+        </Button>
         <Button variant="outline">Все бронирования</Button>
         <Button variant="outline">Настройки</Button>
       </div>

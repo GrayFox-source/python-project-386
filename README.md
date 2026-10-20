@@ -36,6 +36,7 @@ cp backend/.env.example backend/.env
 - `DATABASE_URL` — строка подключения SQLAlchemy.
 - `ENVIRONMENT` — `development` или `production`; в production cookie сессии получает флаг `Secure`.
 - `CORS_ORIGINS` — разрешённые origin фронтенда через запятую.
+- `PUBLIC_BASE_URL` — публичный адрес фронтенда для Scheduling Link.
 
 ## Backend
 

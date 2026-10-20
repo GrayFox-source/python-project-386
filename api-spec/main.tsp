@@ -184,6 +184,49 @@ model MeetingType {
   updated_at: utcDateTime;
 }
 
+@doc("Input payload for creating or replacing a Meeting Type. On create, omit slug to generate one from the title; on replace, omit it to keep the current slug.")
+model MeetingTypeWrite {
+  @doc("1–120 characters after trim.")
+  title: string;
+
+  @doc("Optional, at most 2000 characters. Trimmed; an empty string is stored as null.")
+  description?: string | null;
+
+  @doc("5–480 minutes.")
+  duration_minutes: int32;
+
+  format: MeetingTypeFormat;
+
+  @doc("Optional link (online) or address (offline), at most 500 characters. Trimmed; an empty string is stored as null.")
+  location?: string | null;
+
+  @doc("Optional URL-safe identifier, unique per Host. Omit to generate from the title.")
+  slug?: string;
+
+  @doc("Availability the Meeting Type draws its Slots from.")
+  availability_id: string;
+
+  @doc("0–120 minutes. Defaults to 0.")
+  buffer_before_minutes?: int32;
+
+  @doc("0–120 minutes. Defaults to 0.")
+  buffer_after_minutes?: int32;
+
+  @doc("0–10080 minutes. Defaults to 120.")
+  minimum_notice_minutes?: int32;
+
+  @doc("1–365 calendar days. Defaults to 60.")
+  booking_horizon_days?: int32;
+
+  @doc("5–480 minutes. Defaults to `duration_minutes`.")
+  slot_interval_minutes?: int32;
+}
+
+model MeetingTypeListResponse {
+  items: MeetingType[];
+  total: int32;
+}
+
 // ---------------------------------------------------------------------------
 // Slots
 // ---------------------------------------------------------------------------
@@ -355,6 +398,60 @@ interface HostAvailabilities {
   remove(@path id: string): {
     @statusCode _: 204;
   } | UnauthorizedError | NotFoundError | ConflictError;
+}
+
+@route("/hosts/me/meeting-types")
+@tag("Meeting Types")
+interface HostMeetingTypes {
+  @get
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("List Host-scoped Meeting Types, newest first.")
+  list(
+    @query limit?: int32,
+    @query offset?: int32,
+  ): MeetingTypeListResponse | UnauthorizedError;
+
+  @post
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Create an active Meeting Type.")
+  create(
+    @body body: MeetingTypeWrite,
+  ): MeetingType | UnauthorizedError | NotFoundError | ValidationErrorResponse | ConflictError;
+
+  @get
+  @route("/{id}")
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Get one Host-scoped Meeting Type.")
+  get(@path id: string): MeetingType | UnauthorizedError | NotFoundError;
+
+  @put
+  @route("/{id}")
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Replace a Meeting Type's editable fields. Status is changed only by archive/unarchive.")
+  replace(
+    @path id: string,
+    @body body: MeetingTypeWrite,
+  ): MeetingType | UnauthorizedError | NotFoundError | ValidationErrorResponse | ConflictError;
+
+  @delete
+  @route("/{id}")
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Delete a Meeting Type. Booking-related deletion guards will be added with the Booking lifecycle.")
+  remove(@path id: string): {
+    @statusCode _: 204;
+  } | UnauthorizedError | NotFoundError;
+
+  @post
+  @route("/{id}/archive")
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Archive a Meeting Type while keeping its slug reserved.")
+  archive(@path id: string): MeetingType | UnauthorizedError | NotFoundError;
+
+  @post
+  @route("/{id}/unarchive")
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Return an archived Meeting Type to active use with the same slug.")
+  unarchive(@path id: string): MeetingType | UnauthorizedError | NotFoundError;
 }
 
 @route("/book")
