@@ -118,6 +118,20 @@ model AvailabilityListResponse {
   total: int32;
 }
 
+@doc("Input payload for creating or replacing an Availability. PUT replaces weekly windows and overrides atomically.")
+model AvailabilityWrite {
+  @doc("1–100 characters after trim, unique within the Host case-insensitively.")
+  name: string;
+
+  @doc("IANA timezone the weekly windows and overrides are interpreted in.")
+  timezone: string;
+
+  @doc("Weekly windows keyed by ISO weekday: 1 = Monday … 7 = Sunday. An empty array means a day off.")
+  weekly: Record<AvailabilityWindow[]>;
+
+  overrides: DateOverride[];
+}
+
 // ---------------------------------------------------------------------------
 // Meeting Type
 // ---------------------------------------------------------------------------
@@ -266,6 +280,12 @@ model GoneError {
 }
 
 @error
+model ConflictError {
+  @statusCode statusCode: 409;
+  detail: ApiError;
+}
+
+@error
 model ValidationErrorResponse {
   @statusCode statusCode: 422;
   detail: ApiError;
@@ -307,6 +327,34 @@ interface HostAvailabilities {
     @query limit?: int32,
     @query offset?: int32,
   ): AvailabilityListResponse | UnauthorizedError;
+
+  @post
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Create an Availability for the current Host.")
+  create(@body body: AvailabilityWrite): Availability | UnauthorizedError | ValidationErrorResponse;
+
+  @get
+  @route("/{id}")
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Get one Host-scoped Availability.")
+  get(@path id: string): Availability | UnauthorizedError | NotFoundError;
+
+  @put
+  @route("/{id}")
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Atomically replace an Availability's weekly windows and overrides.")
+  replace(
+    @path id: string,
+    @body body: AvailabilityWrite,
+  ): Availability | UnauthorizedError | NotFoundError | ValidationErrorResponse;
+
+  @delete
+  @route("/{id}")
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Delete an unused Availability.")
+  remove(@path id: string): {
+    @statusCode _: 204;
+  } | UnauthorizedError | NotFoundError | ConflictError;
 }
 
 @route("/book")

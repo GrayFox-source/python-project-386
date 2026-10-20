@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Outlet, useNavigate } from "react-router-dom"
+import { NavLink, Outlet, useNavigate } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/auth/use-auth"
@@ -33,6 +33,25 @@ export function DashboardLayout() {
               </p>
             )}
           </div>
+          <nav className="flex flex-wrap items-center gap-4 text-sm">
+            <NavLink
+              className={({ isActive }) =>
+                isActive ? "font-medium" : "text-muted-foreground"
+              }
+              end
+              to="/dashboard"
+            >
+              Обзор
+            </NavLink>
+            <NavLink
+              className={({ isActive }) =>
+                isActive ? "font-medium" : "text-muted-foreground"
+              }
+              to="/dashboard/availability"
+            >
+              Расписания
+            </NavLink>
+          </nav>
           <Button
             variant="outline"
             onClick={handleLogout}

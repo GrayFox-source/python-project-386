@@ -189,6 +189,150 @@ paths:
         - Availabilities
       security:
         - ApiKeyAuth: []
+    post:
+      operationId: HostAvailabilities_create
+      description: Create an Availability for the current Host.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Availability'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '422':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+      tags:
+        - Availabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvailabilityWrite'
+      security:
+        - ApiKeyAuth: []
+  /hosts/me/availabilities/{id}:
+    get:
+      operationId: HostAvailabilities_get
+      description: Get one Host-scoped Availability.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Availability'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+      tags:
+        - Availabilities
+      security:
+        - ApiKeyAuth: []
+    put:
+      operationId: HostAvailabilities_replace
+      description: Atomically replace an Availability's weekly windows and overrides.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Availability'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+        '422':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+      tags:
+        - Availabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvailabilityWrite'
+      security:
+        - ApiKeyAuth: []
+    delete:
+      operationId: HostAvailabilities_remove
+      description: Delete an unused Availability.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictError'
+      tags:
+        - Availabilities
+      security:
+        - ApiKeyAuth: []
 components:
   schemas:
     ApiError:
@@ -274,6 +418,32 @@ components:
           pattern: ^(([01][0-9]|2[0-3]):(00|05|10|15|20|25|30|35|40|45|50|55)|24:00)$
           description: Local end time, `HH:MM` on a 5-minute grid, or `24:00` for local midnight.
       description: A local-time interval on one weekday. Times use a 5-minute grid; `24:00` is allowed only as an end.
+    AvailabilityWrite:
+      type: object
+      required:
+        - name
+        - timezone
+        - weekly
+        - overrides
+      properties:
+        name:
+          type: string
+          description: 1–100 characters after trim, unique within the Host case-insensitively.
+        timezone:
+          type: string
+          description: IANA timezone the weekly windows and overrides are interpreted in.
+        weekly:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/AvailabilityWindow'
+          description: 'Weekly windows keyed by ISO weekday: 1 = Monday … 7 = Sunday. An empty array means a day off.'
+        overrides:
+          type: array
+          items:
+            $ref: '#/components/schemas/DateOverride'
+      description: Input payload for creating or replacing an Availability. PUT replaces weekly windows and overrides atomically.
     Booking:
       type: object
       required:
@@ -350,6 +520,13 @@ components:
         - guest
         - host
       description: Which side cancelled a Booking.
+    ConflictError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          $ref: '#/components/schemas/ApiError'
     DateOverride:
       type: object
       required:
