@@ -13,11 +13,13 @@
     "prepare": "npm run generate:api"
   },
   "dependencies": {
+    "@radix-ui/react-label": "^2.1.17",
     "@radix-ui/react-slot": "^1.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.4",
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {

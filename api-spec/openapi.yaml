@@ -3,9 +3,68 @@ info:
   title: Booking API
   version: 0.0.0
 tags:
+  - name: Auth
   - name: Availabilities
   - name: Booking Page
 paths:
+  /auth/login:
+    post:
+      operationId: Auth_login
+      description: Authenticate the Host and set the `host_session` httpOnly cookie.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+  /auth/logout:
+    post:
+      operationId: Auth_logout
+      description: Clear the `host_session` cookie.
+      parameters: []
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+      tags:
+        - Auth
+  /auth/me:
+    get:
+      operationId: Auth_me
+      description: Return the currently authenticated Host.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Host'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedError'
+      tags:
+        - Auth
+      security:
+        - ApiKeyAuth: []
   /book/{slug}:
     get:
       operationId: BookingPage_getMeetingType
@@ -317,6 +376,42 @@ components:
       properties:
         detail:
           $ref: '#/components/schemas/ApiError'
+    Host:
+      type: object
+      required:
+        - id
+        - email
+        - timezone
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          description: Host email, normalised to lower case.
+        timezone:
+          type: string
+          description: IANA timezone used as the default for new Availability.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      description: The single account that owns the scheduling page.
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+          description: Plaintext password. It is never returned by the API or logged.
+      description: Credentials for the single pre-created Host account.
     MeetingType:
       type: object
       required:

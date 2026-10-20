@@ -1,7 +1,3 @@
-from fastapi import FastAPI
+from app.main import create_app
 
-app = FastAPI(title="Cal.com Clone API")
-
-@app.get("/health")
-def health_check():
-    return {"status": "ok", "service": "backend"}
+app = create_app()

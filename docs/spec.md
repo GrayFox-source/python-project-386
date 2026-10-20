@@ -638,6 +638,7 @@ Booking Page flow:
 
 | HTTP | `code` | Когда |
 | --- | --- | --- |
+| 401 | `unauthorized` | Нет или истекла сессия Host'а; неверные credentials при входе |
 | 422 | `invalid_timezone` | Неизвестная/невалидная IANA-зона |
 | 422 | `overlapping_windows` | Пересекающиеся интервалы в дне |
 | 422 | `duplicate_override_date` | Несколько overrides на одну дату |

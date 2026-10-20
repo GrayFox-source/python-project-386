@@ -7,6 +7,7 @@ setup:
 	npm --prefix api-spec ci
 	npm --prefix frontend ci
 	uv sync --project backend --dev
+	$(MAKE) generate
 
 ## Run the whole generation chain: TypeSpec -> OpenAPI -> Frontend SDK + Backend models.
 generate:

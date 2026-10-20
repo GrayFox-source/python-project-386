@@ -4,6 +4,11 @@
 __pycache__/
 *.py[cod]
 
+# Local configuration and databases
+backend/.env
+*.db
+*.sqlite3
+
 # API generation
 api-spec/node_modules/
 api-spec/tsp-output/

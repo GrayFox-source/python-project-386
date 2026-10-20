@@ -39,6 +39,32 @@ enum CancelledBy {
 }
 
 // ---------------------------------------------------------------------------
+// Host
+// ---------------------------------------------------------------------------
+
+@doc("The single account that owns the scheduling page.")
+model Host {
+  id: string;
+
+  @doc("Host email, normalised to lower case.")
+  email: string;
+
+  @doc("IANA timezone used as the default for new Availability.")
+  timezone: string;
+
+  created_at: utcDateTime;
+  updated_at: utcDateTime;
+}
+
+@doc("Credentials for the single pre-created Host account.")
+model LoginRequest {
+  email: string;
+
+  @doc("Plaintext password. It is never returned by the API or logged.")
+  password: string;
+}
+
+// ---------------------------------------------------------------------------
 // Availability
 // ---------------------------------------------------------------------------
 
@@ -248,6 +274,28 @@ model ValidationErrorResponse {
 // ---------------------------------------------------------------------------
 // Endpoints
 // ---------------------------------------------------------------------------
+
+@route("/auth")
+@tag("Auth")
+interface Auth {
+  @post
+  @route("/login")
+  @doc("Authenticate the Host and set the `host_session` httpOnly cookie.")
+  login(@body credentials: LoginRequest): Host | UnauthorizedError;
+
+  @post
+  @route("/logout")
+  @doc("Clear the `host_session` cookie.")
+  logout(): {
+    @statusCode _: 204;
+  };
+
+  @get
+  @route("/me")
+  @useAuth(ApiKeyAuth<ApiKeyLocation.cookie, "host_session">)
+  @doc("Return the currently authenticated Host.")
+  me(): Host | UnauthorizedError;
+}
 
 @route("/hosts/me/availabilities")
 @tag("Availabilities")
