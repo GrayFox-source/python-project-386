@@ -4,6 +4,15 @@
 
 Учебный проект Хекслета: https://ru.hexlet.io/programs/python
 
+## Демо
+
+Приложение задеплоено на Render: https://booking-calendar-fz8l.onrender.com
+
+Тестовые данные для входа Host:
+
+- Электронная почта: `host@example.com`
+- Пароль: `password`
+
 ## Стек
 
 - Backend: Python 3.14, FastAPI, SQLAlchemy 2.1, Alembic, SQLite.
@@ -65,7 +74,7 @@ npm run dev
 В корне лежит `render.yaml` — Blueprint для одного Docker-сервиса: бэкенд раздаёт собранный фронтенд и API с одного домена.
 
 1. В Render выберите **New → Blueprint** и подключите репозиторий.
-2. Заполните секреты `HOST_EMAIL`, `HOST_PASSWORD` и `PUBLIC_BASE_URL` (например, `https://booking-calendar.onrender.com`). `JWT_SECRET` генерируется автоматически.
+2. Заполните секреты `HOST_EMAIL`, `HOST_PASSWORD` и `PUBLIC_BASE_URL` (например, `https://booking-calendar-fz8l.onrender.com`). `JWT_SECRET` генерируется автоматически.
 3. Примените Blueprint: Render соберёт `Dockerfile`, подключит диск к `/data` и запустит сервис.
 
 При старте контейнера выполняются `alembic upgrade head` и seed Host, затем запускается uvicorn. SQLite хранится в `/data/booking.db`, поэтому нужен платный план с диском (`starter` и выше): на free-плане данные теряются при каждом деплое или рестарте.
