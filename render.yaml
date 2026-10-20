@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: booking-calendar
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        value: sqlite:////data/booking.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: HOST_EMAIL
+        sync: false
+      - key: HOST_PASSWORD
+        sync: false
+      - key: HOST_TIMEZONE
+        value: Europe/Moscow
+      - key: PUBLIC_BASE_URL
+        sync: false
+    disk:
+      name: booking-data
+      mountPath: /data
+      sizeGB: 1
