@@ -14,3 +14,4 @@ api-spec/node_modules/
 api-spec/tsp-output/
 frontend/src/api/generated/
 backend/generated/
+backend/static/

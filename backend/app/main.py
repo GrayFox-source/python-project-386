@@ -1,10 +1,12 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.auth import router as auth_router
 from app.availability import router as availability_router
@@ -22,8 +24,13 @@ from app.config import Settings, get_settings
 from app.db import create_db_engine, create_session_factory
 from app.meeting_types import router as meeting_types_router
 
+DEFAULT_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+
+def create_app(
+    settings: Settings | None = None,
+    static_dir: Path | None = None,
+) -> FastAPI:
     app_settings = settings or get_settings()
     engine = create_db_engine(app_settings.database_url)
     session_factory = create_session_factory(engine)
@@ -69,4 +76,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(public_bookings_router)
     app.include_router(guest_bookings_router)
     app.include_router(host_bookings_router)
+
+    static_root = (static_dir or DEFAULT_STATIC_DIR).resolve()
+    if static_root.is_dir():
+        assets_dir = static_root / "assets"
+        if assets_dir.is_dir():
+            app.mount(
+                "/assets",
+                StaticFiles(directory=assets_dir),
+                name="assets",
+            )
+
+        index_file = static_root / "index.html"
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        def serve_spa(full_path: str) -> FileResponse:
+            if full_path == "api" or full_path.startswith("api/"):
+                raise HTTPException(status_code=404)
+
+            candidate = (static_root / full_path).resolve()
+            if (
+                full_path
+                and candidate.is_file()
+                and candidate.is_relative_to(static_root)
+            ):
+                return FileResponse(candidate)
+
+            if not index_file.is_file():
+                raise HTTPException(status_code=404)
+            return FileResponse(index_file)
+
     return app
